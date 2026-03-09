@@ -5,21 +5,138 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Global Food Challenge</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #f8f8f8; }
-    h1 { color: #e74c3c; }
+    body { font-family: Arial, sans-serif; text-align: center; background: #f9f9f9; margin:0; padding:0; }
+    h1 { color: #c0392b; margin: 1rem; }
+    #wheel { border: 8px solid #e74c3c; border-radius: 50%; background: white; margin: 1.5rem auto; }
+    button { background: #27ae60; color: white; border: none; padding: 1rem 2rem; font-size: 1.3rem; border-radius: 50px; cursor: pointer; margin: 1rem; }
+    button:hover { background: #219653; }
+    #result { font-size: 1.8rem; font-weight: bold; color: #8e44ad; margin: 2rem; min-height: 2.5rem; }
   </style>
 </head>
 <body>
-  <canvas id="wheel" width="400" height="400"></canvas>
+
+<nav style="background:#333; padding:1rem; text-align:center; margin-bottom:1rem;">
+  <a href="index.html" style="color:white; margin:0 1.5rem; text-decoration:none; font-weight:bold;">Home / Spin</a>
+  <a href="grade.html" style="color:white; margin:0 1.5rem; text-decoration:none; font-weight:bold;">Grade a Meal</a>
+  <a href="rankings.html" style="color:white; margin:0 1.5rem; text-decoration:none; font-weight:bold;">Rankings</a>
+</nav>
+
+<h1>My Global Food Challenge 🍔🌍</h1>
+<p>Spin → Eat at a restaurant from that country → Come back and grade it!</p>
+
+<canvas id="wheel" width="350" height="350"></canvas>
+<br>
 <button onclick="spin()">Spin the Wheel!</button>
+<div id="result"></div>
 
 <script>
-  // Paste a full spinning wheel script here (search for "javascript spinning wheel canvas" on Google/CodePen for ready code)
-  // Example placeholder:
-  function spin() { alert("Landed on Italy! Go eat!"); /* Add removal logic later */ }
+// Initial list of countries (edit this!)
+let countries = [
+  "Italy", "Japan", "Mexico", "Thailand", "India", "France", "China", "Greece", "Spain", "Vietnam",
+  "USA", "Korea", "Turkey", "Brazil", "Morocco", "Ethiopia", "Lebanon", "Peru", "Argentina", "Egypt"
+];
+
+// Load previously spun countries from localStorage and remove them
+let spun = JSON.parse(localStorage.getItem('spunCountries') || '[]');
+countries = countries.filter(c => !spun.includes(c));
+
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const centerX = canvas.width / 2;
+const centerY = canvas.height / 2;
+const radius = canvas.width / 2 - 10;
+let currentAngle = 0;
+let spinning = false;
+
+function drawWheel() {
+  if (countries.length === 0) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = 'bold 20px Arial';
+    ctx.fillStyle = 'red';
+    ctx.textAlign = 'center';
+    ctx.fillText("All countries spun!", centerX, centerY);
+    return;
+  }
+
+  const arc = (2 * Math.PI) / countries.length;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  countries.forEach((country, i) => {
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, radius, currentAngle + i * arc, currentAngle + (i + 1) * arc);
+    ctx.closePath();
+    ctx.fillStyle = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9B59B6'][i % 7];
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Text
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(currentAngle + i * arc + arc / 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'black';
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText(country, radius - 20, 5);
+    ctx.restore();
+  });
+
+  // Pointer triangle at top
+  ctx.fillStyle = '#c0392b';
+  ctx.beginPath();
+  ctx.moveTo(centerX, 10);
+  ctx.lineTo(centerX - 15, 40);
+  ctx.lineTo(centerX + 15, 40);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function spin() {
+  if (spinning || countries.length === 0) return;
+  spinning = true;
+  document.getElementById('result').textContent = '';
+
+  const spins = 5 + Math.random() * 5;              // full spins
+  const extraDegrees = Math.random() * 360;         // final landing spot
+  const totalRotation = (spins * 360) + extraDegrees;
+  const duration = 4000 + Math.random() * 2000;     // 4-6 seconds
+  const startTime = performance.now();
+
+  function animate(time) {
+    const elapsed = time - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);     // ease-out cubic
+
+    currentAngle = (totalRotation * ease) * (Math.PI / 180);
+    drawWheel();
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      spinning = false;
+      // Calculate winner
+      const normalizedAngle = (currentAngle * 180 / Math.PI) % 360;
+      const sliceSize = 360 / countries.length;
+      let winnerIndex = Math.floor((360 - normalizedAngle) / sliceSize) % countries.length;
+      const winner = countries[winnerIndex];
+
+      document.getElementById('result').textContent = `Landed on: ${winner}! Go eat! 🍽️`;
+
+      // Remove from list and save to localStorage
+      spun.push(winner);
+      localStorage.setItem('spunCountries', JSON.stringify(spun));
+      countries = countries.filter(c => !spun.includes(c));
+      drawWheel();  // redraw without the winner
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+drawWheel();  // initial draw
 </script>
-  <h1>Welcome to My Food Challenge!</h1>
-  <p>Spin the wheel → Eat food from that country → Grade it here.</p>
-  <!-- Your spinning wheel code or embed will go here -->
+
 </body>
 </html>
