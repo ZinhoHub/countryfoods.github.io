@@ -1,39 +1,29 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Global Food Challenge</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #f9f9f9; margin:0; padding:0; }
-    h1 { color: #c0392b; margin: 1rem; }
-    #wheel { border: 8px solid #e74c3c; border-radius: 50%; background: white; margin: 1.5rem auto; }
-    button { background: #27ae60; color: white; border: none; padding: 1rem 2rem; font-size: 1.3rem; border-radius: 50px; cursor: pointer; margin: 1rem; }
-    button:hover { background: #219653; }
-    #result { font-size: 1.8rem; font-weight: bold; color: #8e44ad; margin: 2rem; min-height: 2.5rem; }
-  </style>
-</head>
-<body>
-
-<nav style="background:#333; padding:1rem; text-align:center; margin-bottom:1rem;">
-  <a href="index.html" style="color:white; margin:0 1.5rem; text-decoration:none; font-weight:bold;">Home / Spin</a>
-  <a href="grade.html" style="color:white; margin:0 1.5rem; text-decoration:none; font-weight:bold;">Grade a Meal</a>
-  <a href="rankings.html" style="color:white; margin:0 1.5rem; text-decoration:none; font-weight:bold;">Rankings</a>
-</nav>
-
-<h1>My Global Food Challenge 🍔🌍</h1>
-<p>Spin → Eat at a restaurant from that country → Come back and grade it!</p>
-
-<canvas id="wheel" width="350" height="350"></canvas>
-<br>
-<button onclick="spin()">Spin the Wheel!</button>
-<div id="result"></div>
-
 <script>
-// Initial list of countries (edit this!)
+// Full list of countries (approx. 195 sovereign states + common territories)
+// You can remove any you don't want (e.g. non-restaurant countries)
 let countries = [
-  "Italy", "Japan", "Mexico", "Thailand", "India", "France", "China", "Greece", "Spain", "Vietnam",
-  "USA", "Korea", "Turkey", "Brazil", "Morocco", "Ethiopia", "Lebanon", "Peru", "Argentina", "Egypt"
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia",
+  "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium",
+  "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria",
+  "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad",
+  "Chile", "China", "Colombia", "Comoros", "Congo (Congo-Brazzaville)", "Costa Rica", "Croatia", "Cuba", "Cyprus",
+  "Czechia (Czech Republic)", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt",
+  "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France",
+  "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau",
+  "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel",
+  "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Korea (North)", "Korea (South)",
+  "Kosovo", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein",
+  "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands",
+  "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco",
+  "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger",
+  "Nigeria", "North Macedonia", "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea",
+  "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis",
+  "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia",
+  "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia",
+  "South Africa", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan",
+  "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey",
+  "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay",
+  "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
 ];
 
 // Load previously spun countries from localStorage and remove them
@@ -51,7 +41,7 @@ let spinning = false;
 function drawWheel() {
   if (countries.length === 0) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = 'bold 20px Arial';
+    ctx.font = 'bold 24px Arial';
     ctx.fillStyle = 'red';
     ctx.textAlign = 'center';
     ctx.fillText("All countries spun!", centerX, centerY);
@@ -62,33 +52,38 @@ function drawWheel() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   countries.forEach((country, i) => {
+    const startAngle = currentAngle + i * arc;
+    const endAngle = currentAngle + (i + 1) * arc;
+
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
-    ctx.arc(centerX, centerY, radius, currentAngle + i * arc, currentAngle + (i + 1) * arc);
+    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
     ctx.closePath();
-    ctx.fillStyle = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9B59B6'][i % 7];
+
+    // Alternating colors for better contrast
+    ctx.fillStyle = i % 2 === 0 ? '#FF6B6B' : '#4ECDC4';
     ctx.fill();
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Text
+    // Text - rotated to fit nicely
     ctx.save();
     ctx.translate(centerX, centerY);
-    ctx.rotate(currentAngle + i * arc + arc / 2);
+    ctx.rotate(startAngle + arc / 2);
     ctx.textAlign = 'right';
     ctx.fillStyle = 'black';
-    ctx.font = 'bold 14px Arial';
-    ctx.fillText(country, radius - 20, 5);
+    ctx.font = 'bold 13px Arial';
+    ctx.fillText(country, radius - 15, 5);
     ctx.restore();
   });
 
-  // Pointer triangle at top
+  // Fixed pointer (red triangle at TOP / 12 o'clock position)
   ctx.fillStyle = '#c0392b';
   ctx.beginPath();
-  ctx.moveTo(centerX, 10);
-  ctx.lineTo(centerX - 15, 40);
-  ctx.lineTo(centerX + 15, 40);
+  ctx.moveTo(centerX, 20);               // Tip
+  ctx.lineTo(centerX - 20, 60);          // Left base
+  ctx.lineTo(centerX + 20, 60);          // Right base
   ctx.closePath();
   ctx.fill();
 }
@@ -98,16 +93,16 @@ function spin() {
   spinning = true;
   document.getElementById('result').textContent = '';
 
-  const spins = 5 + Math.random() * 5;              // full spins
-  const extraDegrees = Math.random() * 360;         // final landing spot
-  const totalRotation = (spins * 360) + extraDegrees;
-  const duration = 4000 + Math.random() * 2000;     // 4-6 seconds
+  const fullSpins = 5 + Math.floor(Math.random() * 6);  // 5-10 full spins
+  const extraDegrees = Math.random() * 360;
+  const totalRotation = (fullSpins * 360) + extraDegrees;
+  const duration = 5000 + Math.random() * 3000;  // 5-8 sec
   const startTime = performance.now();
 
   function animate(time) {
     const elapsed = time - startTime;
     const progress = Math.min(elapsed / duration, 1);
-    const ease = 1 - Math.pow(1 - progress, 3);     // ease-out cubic
+    const ease = 1 - Math.pow(1 - progress, 4);  // Stronger ease-out
 
     currentAngle = (totalRotation * ease) * (Math.PI / 180);
     drawWheel();
@@ -116,19 +111,25 @@ function spin() {
       requestAnimationFrame(animate);
     } else {
       spinning = false;
-      // Calculate winner
-      const normalizedAngle = (currentAngle * 180 / Math.PI) % 360;
+
+      // Calculate winner: angle from top pointer (0 degrees)
+      let finalAngle = (currentAngle * 180 / Math.PI) % 360;
+      if (finalAngle < 0) finalAngle += 360;
+
       const sliceSize = 360 / countries.length;
-      let winnerIndex = Math.floor((360 - normalizedAngle) / sliceSize) % countries.length;
+      // Key fix: Invert direction + offset to match top pointer
+      let winnerIndex = Math.floor((360 - finalAngle) / sliceSize) % countries.length;
+
       const winner = countries[winnerIndex];
 
       document.getElementById('result').textContent = `Landed on: ${winner}! Go eat! 🍽️`;
+      console.log(`Winner: ${winner} (index ${winnerIndex}, finalAngle ${finalAngle.toFixed(1)}°)`);
 
-      // Remove from list and save to localStorage
+      // Remove and save
       spun.push(winner);
       localStorage.setItem('spunCountries', JSON.stringify(spun));
       countries = countries.filter(c => !spun.includes(c));
-      drawWheel();  // redraw without the winner
+      drawWheel();
     }
   }
 
@@ -137,6 +138,3 @@ function spin() {
 
 drawWheel();  // initial draw
 </script>
-
-</body>
-</html>
