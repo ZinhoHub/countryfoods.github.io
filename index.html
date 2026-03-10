@@ -1,45 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Food Challenge Wheel</title>
-
-<link rel="stylesheet" href="style.css">
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Country Spinner Wheel</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <h1>Country Spinner</h1>
 
-<h1>🌍 Food Challenge Wheel</h1>
-
-<div class="wheel-container">
-
-    <!-- Arrow Pointer -->
-    <div class="arrow"></div>
-
-    <!-- Canvas Wheel -->
-    <canvas id="wheel" width="500" height="500"></canvas>
-
-</div>
-
-<button onclick="spinWheel()">Spin the Wheel</button>
-
-<!-- Popup Result -->
-<div id="resultPopup" class="popup hidden">
-
-    <div class="popup-content">
-
-        <h2 id="countryName"></h2>
-
-        <img id="flagImg" src="" alt="Flag">
-
-        <button onclick="closePopup()">Close</button>
-
+    <!-- Theme toggle – top right -->
+    <div class="theme-toggle-wrapper">
+        <label class="theme-toggle">
+            <input type="checkbox" id="theme-toggle" />
+            <span class="slider">
+                <span class="icon sun">☀️</span>
+                <span class="icon moon">🌙</span>
+                <span class="knob"></span>
+            </span>
+        </label>
     </div>
 
-</div>
+    <!-- Wheel wrapper -->
+    <div class="wheel-wrapper">
+        <!-- Animated wheel only -->
+        <div class="wheel-container">
+            <canvas id="wheel" width="520" height="520"></canvas>
+        </div>
 
-<script src="script.js"></script>
+        <!-- Fixed pointer – does NOT rotate -->
+        <div class="pointer-fixed"></div>
 
+        <!-- Spin button – fixed in center -->
+        <button id="btn-spin" class="spin-button">Spin</button>
+    </div>
+
+    <div class="controls">
+        <button id="btn-reset">Reset Game</button>
+    </div>
+
+    <!-- Popup -->
+    <div id="popup" class="popup hidden">
+        <div class="popup-content">
+            <h2 id="popupCountry"></h2>
+            <img id="popupFlag" src="" alt="Country Flag">
+            <button id="btn-close">Close</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
