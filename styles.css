@@ -653,3 +653,58 @@ input[type="date"] {
     min-width: 45px;
     text-align: right;
 }
+.map-wrapper {
+    width: 95%;
+    max-width: 800px;
+    background: var(--popup-bg);
+    margin: 20px 0;
+    padding: 15px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px var(--shadow);
+}
+
+#world-map-container svg {
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));
+}
+
+#map {
+    width: 90%; 
+    height: 350px; 
+    margin: 0 auto 20px auto; 
+    border-radius: 20px;
+    
+    /* This adds the border around the map image */
+    border: 3px solid var(--text-primary); 
+    box-shadow: 0 10px 30px var(--shadow);
+    
+    background: var(--popup-bg);
+    overflow: hidden; /* Ensures the map doesn't spill over the rounded corners */
+}
+
+/* Optional: Make the border color softer in Dark Mode */
+[data-theme="dark"] #map {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Default color for unvisited countries */
+.country-path {
+    fill: rgba(0, 0, 0, 0.1);
+    stroke: var(--popup-bg);
+    stroke-width: 0.5;
+    transition: fill 0.5s ease;
+}
+
+[data-theme="dark"] .country-path {
+    fill: rgba(255, 255, 255, 0.1);
+}
+
+/* Color for visited countries */
+.country-visited {
+    fill: var(--btn-spin-start) !important;
+}
+
+#overall-box {
+    transition: background-color 0.4s ease, color 0.4s ease;
+}
