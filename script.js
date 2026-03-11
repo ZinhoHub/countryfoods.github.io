@@ -69,7 +69,8 @@ const countriesFull = [
 ];
 
 let spun = JSON.parse(localStorage.getItem("spunCountries") || "[]");
-let countries = countriesFull.filter(c => !spun.includes(c.name));
+const loggedCountries = (JSON.parse(localStorage.getItem('foodDiary') || '[]')).map(e => e.country);
+let countries = countriesFull.filter(c => !loggedCountries.includes(c.name));
 
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
@@ -161,6 +162,23 @@ function updateMap() {
                     attribute: 'fill',
                     scale: { '1': myNewColor }
                 }]
+            },
+            onRegionTooltipShow(event, tooltip, code) {
+                const diary = JSON.parse(localStorage.getItem('foodDiary') || '[]');
+                const countryInfo = countriesFull.find(c => c.code === code);
+                if (!countryInfo) return;
+                const entries = diary.filter(e => e.country === countryInfo.name);
+                if (entries.length === 0) {
+                    tooltip.text(`<div class="map-tooltip-name">${countryInfo.name}</div><div class="map-tooltip-unvisited">Not visited yet</div>`, true);
+                } else {
+                    const rows = entries.map(e => `
+                        <div class="map-tooltip-entry">
+                            <span class="map-tooltip-restaurant">🍽 ${e.restaurant}</span>
+                            <span class="map-tooltip-date">${e.date}</span>
+                            <span class="map-tooltip-score" style="color:${e.overall >= 8 ? '#27ae60' : e.overall >= 5 ? '#e67e22' : '#e74c3c'}">${e.overall.toFixed(1)} ⭐</span>
+                        </div>`).join('');
+                    tooltip.text(`<div class="map-tooltip-name">${countryInfo.name}</div>${rows}`, true);
+                }
             }
         });
     } else {
@@ -267,9 +285,6 @@ function finishSpin() {
         setTimeout(() => popup.classList.add("show"), 10);
     };
 
-    spun.push(winner.name);
-    localStorage.setItem("spunCountries", JSON.stringify(spun));
-    countries = countriesFull.filter(c => !spun.includes(c.name));
 }
 
 // --- FORM LOGIC ---
@@ -330,42 +345,94 @@ document.getElementById('btn-save-log').onclick = () => {
         date: new Date().toLocaleDateString()
     });
     localStorage.setItem('foodDiary', JSON.stringify(diary));
+    // Remove the logged country from the wheel
+    countries = countries.filter(c => c.name !== country);
     updateProgressBar();
     alert("Saved!"); 
     switchTab('history');
 };
+// --- LOG RENDERING (UPDATED FOR A-Z AND CONTINENT) ---
+/**
+ * Renders and sorts the food diary entries in the Logs section.
+ * Supports: 'recent' (date), 'alpha' (A-Z), and 'continent' (Grouping)
+ */
+window.renderDiary = function(sortBy = 'recent') {
+    const container = document.getElementById('diary-display');
+    let diaryData = JSON.parse(localStorage.getItem('foodDiary') || "[]");
 
-function renderDiary() {
-    const div = document.getElementById('diary-display');
-    const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
-    
-    if (data.length === 0) {
-        div.innerHTML = '<p style="text-align:center; width:100%;">No logs found yet!</p>';
+    if (diaryData.length === 0) {
+        container.innerHTML = '<p style="text-align:center; width:100%; opacity:0.5;">No reviews found yet!</p>';
         return;
     }
 
-    div.innerHTML = data.map(item => {
+    // 1. UPDATE BUTTON VISUALS
+    document.querySelectorAll('#history-section .rank-opt').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById(`sort-${sortBy}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // 2. SORTING
+    if (sortBy === 'alpha') {
+        diaryData.sort((a, b) => a.country.localeCompare(b.country));
+    } else if (sortBy === 'continent') {
+        diaryData.sort((a, b) => {
+            const contA = countriesFull.find(c => c.name === a.country)?.continent || "Other";
+            const contB = countriesFull.find(c => c.name === b.country)?.continent || "Other";
+            if (contA !== contB) return contA.localeCompare(contB);
+            return a.country.localeCompare(b.country);
+        });
+    } else {
+        diaryData.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+
+    // 3. CARD BUILDER
+    function buildCard(item, showContinent) {
         const flagUrl = getFlagUrl(item.country);
-        
-        // Use the same traffic light logic for the Logs
-        let scoreColor = "#e74c3c"; 
+        const countryInfo = countriesFull.find(c => c.name === item.country);
+        const continentName = countryInfo ? countryInfo.continent : "Unknown";
+        let scoreColor = "#e74c3c";
         if (item.overall >= 8.0) scoreColor = "#27ae60";
         else if (item.overall >= 5.0) scoreColor = "#e67e22";
-
         return `
             <div class="diary-card">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                    <img src="${flagUrl}" alt="" style="width: 30px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1);">
-                    <b style="font-size: 1.1rem;">${item.country}</b>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                        <img src="${flagUrl}" alt="" style="width:30px;border-radius:4px;border:1px solid rgba(0,0,0,0.1);">
+                        <div>
+                            <b style="font-size:1.1rem;display:block;">${item.country}</b>
+                            ${showContinent ? `<small style="opacity:0.6;text-transform:uppercase;font-size:0.7rem;letter-spacing:0.5px;">${continentName}</small>` : ''}
+                        </div>
+                    </div>
+                    <div style="font-size:1.4rem;font-weight:900;color:${scoreColor};">${(item.overall||0).toFixed(1)}</div>
                 </div>
-                <small>${item.restaurant} — ${item.date}</small>
-                <div style="font-size:1.4rem; font-weight:900; color: ${scoreColor}; margin: 5px 0;">
-                    ${item.overall.toFixed(1)} <span style="font-size: 0.9rem; opacity: 0.5;">/ 10</span>
+                <div style="margin-top:5px;"><small><b>${item.restaurant}</b> — ${item.date}</small></div>
+                <p style="margin:8px 0 0 0;opacity:0.8;font-size:0.85rem;font-style:italic;">${item.notes ? `"${item.notes}"` : ''}</p>
+            </div>`;
+    }
+
+    // 4. RENDER
+    if (sortBy === 'continent') {
+        const continentEmojis = { Africa: '🌍', Americas: '🌎', Asia: '🌏', Europe: '🏰', Oceania: '🌊', Other: '🌐' };
+        const groups = {};
+        diaryData.forEach(item => {
+            const cont = countriesFull.find(c => c.name === item.country)?.continent || "Other";
+            if (!groups[cont]) groups[cont] = [];
+            groups[cont].push(item);
+        });
+        container.innerHTML = Object.keys(groups).sort().map(cont => `
+            <div class="continent-group">
+                <div class="continent-group-header">
+                    <span class="continent-group-emoji">${continentEmojis[cont] || '🌐'}</span>
+                    <span class="continent-group-name">${cont}</span>
+                    <span class="continent-group-count">${groups[cont].length} ${groups[cont].length === 1 ? 'entry' : 'entries'}</span>
                 </div>
-                <p style="margin: 0; opacity: 0.8; font-size: 0.9rem;">${item.notes}</p>
+                <div class="continent-group-cards">
+                    ${groups[cont].map(item => buildCard(item, false)).join('')}
+                </div>
             </div>
-        `;
-    }).join('');
+        `).join('');
+    } else {
+        container.innerHTML = diaryData.map(item => buildCard(item, true)).join('');
+    }
 }
 window.updateRank = function(category) {
     const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
