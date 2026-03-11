@@ -22,7 +22,7 @@ const countriesFull = [
     {name: "Gabon", code: "GA", continent: "Africa"}, {name: "Gambia", code: "GM", continent: "Africa"}, {name: "Georgia", code: "GE", continent: "Asia"},
     {name: "Germany", code: "DE", continent: "Europe"}, {name: "Ghana", code: "GH", continent: "Africa"}, {name: "Greece", code: "GR", continent: "Europe"},
     {name: "Grenada", code: "GD", continent: "Americas"}, {name: "Guatemala", code: "GT", continent: "Americas"}, {name: "Guinea", code: "GN", continent: "Africa"},
-    {name: "Guinea-Bissau", code: "GW", continent: "Africa"}, {name: "Guyana", code: "Americas"}, {name: "Haiti", code: "HT", continent: "Americas"},
+    {name: "Guinea-Bissau", code: "GW", continent: "Africa"}, {name: "Guyana", code: "GY", continent: "Americas"}, {name: "Haiti", code: "HT", continent: "Americas"},
     {name: "Honduras", code: "HN", continent: "Americas"}, {name: "Hungary", code: "HU", continent: "Europe"}, {name: "Iceland", code: "IS", continent: "Europe"},
     {name: "India", code: "IN", continent: "Asia"}, {name: "Indonesia", code: "ID", continent: "Asia"}, {name: "Iran", code: "IR", continent: "Asia"},
     {name: "Iraq", code: "IQ", continent: "Asia"}, {name: "Ireland", code: "IE", continent: "Europe"}, {name: "Israel", code: "IL", continent: "Asia"},
@@ -75,6 +75,13 @@ const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
 let currentAngle = 0;
 let spinning = false;
+let vectorMap = null;
+
+// --- HELPERS ---
+function getFlagUrl(countryName) {
+    const country = countriesFull.find(c => c.name.toLowerCase() === countryName.toLowerCase());
+    return country ? `https://flagcdn.com/w40/${country.code.toLowerCase()}.png` : '';
+}
 
 // --- STATISTICS LOGIC ---
 function updateStats() {
@@ -82,15 +89,16 @@ function updateStats() {
     const container = document.getElementById('continent-averages');
     
     if (data.length === 0) {
-        container.innerHTML = "<p style='opacity:0.5;'>Start logging to see continent stats!</p>";
+        container.innerHTML = "<p style='opacity:0.5; text-align:center; margin-top:20px;'>Start logging to see continent stats!</p>";
+        document.getElementById('stat-avg-rating').textContent = "0.0";
+        document.getElementById('stat-best-continent').textContent = "-";
+        document.getElementById('stat-most-visited').textContent = "-";
         return;
     }
 
-    // 1. Calculate Global Avg
     const avgRating = (data.reduce((sum, item) => sum + item.overall, 0) / data.length).toFixed(1);
     document.getElementById('stat-avg-rating').textContent = avgRating;
 
-    // 2. Group by Continent
     const continentStats = {}; 
     data.forEach(item => {
         const countryData = countriesFull.find(c => c.name === item.country);
@@ -100,21 +108,18 @@ function updateStats() {
         continentStats[cont].count++;
     });
 
-    // 3. Sort Continents by Average
     const sortedContinents = Object.keys(continentStats).map(name => ({
         name,
         avg: (continentStats[name].total / continentStats[name].count).toFixed(1),
         count: continentStats[name].count
     })).sort((a, b) => b.avg - a.avg);
 
-    // Update Top Cards
     document.getElementById('stat-best-continent').textContent = sortedContinents[0].name;
     const mostVisited = [...sortedContinents].sort((a,b) => b.count - a.count)[0];
     document.getElementById('stat-most-visited').textContent = mostVisited.name;
 
-    // 4. Render the List
     container.innerHTML = `
-        <h3 style="margin-top:25px; font-size:1rem; opacity:0.8;">Continents by Rating</h3>
+        <h3 style="margin: 25px 0 10px 0; font-size: 1rem; opacity: 0.8; text-align: center;">Continent Leaderboard</h3>
         ${sortedContinents.map(c => `
             <div class="continent-row">
                 <span class="cont-name">${c.name}</span>
@@ -126,7 +131,45 @@ function updateStats() {
         `).join('')}
     `;
 }
-// --- TAB SWITCHING (Updated for Stats) ---
+
+// --- MAP LOGIC ---
+function updateMap() {
+    const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    const visitedCodes = {};
+    const myNewColor = '#27ae60';
+
+    data.forEach(entry => {
+        const country = countriesFull.find(c => c.name === entry.country);
+        if (country) visitedCodes[country.code] = 1;
+    });
+
+    if (!vectorMap) {
+        vectorMap = new jsVectorMap({
+            selector: "#map",
+            map: "world",
+            regionStyle: {
+                initial: { 
+                    fill: '#dee2e6',
+                    stroke: '#888888',
+                    strokeWidth: 0.5
+                },
+                hover: { fillOpacity: 0.7 }
+            },
+            series: {
+                regions: [{
+                    values: visitedCodes,
+                    attribute: 'fill',
+                    scale: { '1': myNewColor }
+                }]
+            }
+        });
+    } else {
+        vectorMap.updateSize();
+        vectorMap.series.regions[0].setValues(visitedCodes);
+    }
+}
+
+// --- TAB SWITCHING ---
 const tabs = {
     wheel: { btn: document.getElementById('tab-wheel'), sec: document.getElementById('wheel-section') },
     diary: { btn: document.getElementById('tab-diary'), sec: document.getElementById('diary-section') },
@@ -140,47 +183,52 @@ function switchTab(k) {
         tabs[x].btn.classList.toggle('active', x === k);
         tabs[x].sec.classList.toggle('hidden', x !== k);
     });
+    if (k === 'wheel') drawWheel();
     if (k === 'history') renderDiary();
     if (k === 'rankings') window.updateRank('overall');
-    if (k === 'stats') updateStats();
+    if (k === 'stats') {
+        updateStats();
+        setTimeout(updateMap, 50);
+    }
 }
 Object.keys(tabs).forEach(k => tabs[k].btn.onclick = () => switchTab(k));
 
-// --- REMAINING ORIGINAL LOGIC (Wheel, Save, etc.) ---
-// ... (Including drawWheel, spin, finishSpin, updateAvg, setupDL)
-
+// --- WHEEL & PROGRESS LOGIC ---
 function updateProgressBar() {
     const diary = JSON.parse(localStorage.getItem('foodDiary') || "[]");
     const uniqueCountriesEaten = new Set(diary.map(entry => entry.country));
-    const total = countriesFull.length;
+    const total = 195;
     const completed = uniqueCountriesEaten.size;
     const percentage = (completed / total) * 100;
+    
     const percentEl = document.getElementById('progress-percent');
     const fillEl = document.getElementById('progress-fill');
     if (percentEl) percentEl.textContent = `${completed} / ${total}`;
     if (fillEl) fillEl.style.width = `${percentage}%`;
 }
 
-function getFlagUrl(countryName) {
-    const country = countriesFull.find(c => c.name.toLowerCase() === countryName.toLowerCase());
-    return country ? `https://flagcdn.com/w40/${country.code.toLowerCase()}.png` : '';
-}
-
 function drawWheel() {
+    if (canvas.offsetWidth > 0) {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetWidth;
+    }
     const cx = canvas.width / 2, cy = canvas.height / 2, r = canvas.width / 2 - 10;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
     if (countries.length === 0) {
-        ctx.font = "bold 20px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "center";
+        ctx.font = "bold 20px Arial"; ctx.fillStyle = "#ff6b6b"; ctx.textAlign = "center";
         ctx.fillText("All countries spun!", cx, cy); return;
     }
+
     const arc = (2 * Math.PI) / countries.length;
     countries.forEach((c, i) => {
         const start = currentAngle + i * arc;
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, start, start + arc);
-        ctx.fillStyle = `hsl(${i * (360 / countries.length)}, 70%, 60%)`; ctx.fill(); ctx.stroke();
+        ctx.fillStyle = `hsl(${i * (360 / countries.length)}, 70%, 60%)`; ctx.fill(); 
+        ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.stroke();
         ctx.save(); ctx.translate(cx, cy); ctx.rotate(start + arc / 2);
-        ctx.fillStyle = "white"; ctx.font = countries.length < 60 ? "bold 10px Arial" : "6px Arial";
-        ctx.textAlign = "right"; ctx.fillText(c.code, r - 15, 4); ctx.restore();
+        ctx.fillStyle = "white"; ctx.font = countries.length > 50 ? "8px Arial" : "bold 10px Arial";
+        ctx.textAlign = "right"; ctx.fillText(c.code, r - 11, 4); ctx.restore();
     });
 }
 
@@ -189,7 +237,6 @@ function spin() {
     spinning = true;
     const duration = 4000, start = performance.now();
     const target = Math.PI * 10 + Math.random() * Math.PI * 2;
-    document.getElementById('btn-spin').style.pointerEvents = 'none';
     document.getElementById('btn-spin').style.opacity = '0.7';
 
     function animate(time) {
@@ -207,7 +254,6 @@ function finishSpin() {
     const arc = (2 * Math.PI) / countries.length;
     let norm = ((3 * Math.PI / 2) - (currentAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
     const winner = countries[Math.floor(norm / arc) % countries.length];
-    document.getElementById('btn-spin').style.pointerEvents = 'auto';
     document.getElementById('btn-spin').style.opacity = '1';
     
     const popup = document.getElementById("popup");
@@ -226,22 +272,42 @@ function finishSpin() {
     countries = countriesFull.filter(c => !spun.includes(c.name));
 }
 
+// --- FORM LOGIC ---
 function updateAvg() {
     const f = parseFloat(document.getElementById('rate-food').value);
     const s = parseFloat(document.getElementById('rate-service').value);
     const v = parseFloat(document.getElementById('rate-vibe').value);
+    
+    // Update labels next to sliders
     document.getElementById('val-food').textContent = f.toFixed(1);
     document.getElementById('val-service').textContent = s.toFixed(1);
     document.getElementById('val-vibe').textContent = v.toFixed(1);
-    const avg = ((f + s + v) / 3).toFixed(1);
+
+    // Your weighted math (0.6, 0.3, 0.1)
+    const avg = (f * 0.6 + s * 0.3 + v * 0.1).toFixed(1);
+    
     const scoreEl = document.getElementById('overall-score');
     const boxEl = document.getElementById('overall-box'); 
+    
     scoreEl.textContent = avg;
-    if (avg >= 8) { boxEl.style.background = "#27ae60"; boxEl.style.color = "#fff"; }
-    else if (avg >= 5) { boxEl.style.background = "#f1c40f"; boxEl.style.color = "#000"; }
-    else { boxEl.style.background = "#e74c3c"; boxEl.style.color = "#fff"; }
+
+    // Traffic Light System
+    if (avg >= 8.0) {
+        boxEl.style.backgroundColor = "#27ae60"; // Solid Green
+        boxEl.style.color = "white";
+    } else if (avg >= 5.0) {
+        boxEl.style.backgroundColor = "#e67e22"; // Solid Orange
+        boxEl.style.color = "white";
+    } else {
+        boxEl.style.backgroundColor = "#e74c3c"; // Solid Red
+        boxEl.style.color = "white";
+    }
 }
+
+// Ensure the sliders trigger the update
 document.querySelectorAll('input[type="range"]').forEach(i => i.oninput = updateAvg);
+// Call once on load to set initial state
+updateAvg();
 
 function setupDL() {
     const dl = document.getElementById('country-options');
@@ -250,20 +316,18 @@ function setupDL() {
 
 document.getElementById('btn-save-log').onclick = () => {
     const country = document.getElementById('log-country').value;
-    const dateInput = document.getElementById('log-date').value;
-    const food = parseFloat(document.getElementById('rate-food').value);
-    const service = parseFloat(document.getElementById('rate-service').value);
-    const vibe = parseFloat(document.getElementById('rate-vibe').value);
-    const overall = parseFloat(document.getElementById('overall-score').textContent);
     if (!country) return alert("Select a country!");
-    const finalDate = dateInput ? new Date(dateInput).toLocaleDateString() : new Date().toLocaleDateString();
+    
     const diary = JSON.parse(localStorage.getItem('foodDiary') || "[]");
     diary.unshift({
         country, 
         restaurant: document.getElementById('log-restaurant').value || "Unnamed",
-        food, service, vibe, overall,
+        food: parseFloat(document.getElementById('rate-food').value),
+        service: parseFloat(document.getElementById('rate-service').value),
+        vibe: parseFloat(document.getElementById('rate-vibe').value),
+        overall: parseFloat(document.getElementById('overall-score').textContent),
         notes: document.getElementById('log-notes').value,
-        date: finalDate
+        date: new Date().toLocaleDateString()
     });
     localStorage.setItem('foodDiary', JSON.stringify(diary));
     updateProgressBar();
@@ -274,78 +338,111 @@ document.getElementById('btn-save-log').onclick = () => {
 function renderDiary() {
     const div = document.getElementById('diary-display');
     const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    
     if (data.length === 0) {
         div.innerHTML = '<p style="text-align:center; width:100%;">No logs found yet!</p>';
         return;
     }
-    div.innerHTML = data.map((item, i) => `
-        <div class="diary-card" style="position: relative; padding-top: 15px;">
-            <button class="delete-btn" onclick="delEntry(${i})" style="position: absolute; top: 10px; right: 10px; z-index: 10;">×</button>
-            <div style="display:flex; flex-direction: column; gap: 2px;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <img src="${getFlagUrl(item.country)}" style="width:20px; border-radius:3px;">
-                    <b style="font-size:1.1rem;">${item.country}</b>
-                </div>
-                <span style="font-size: 0.75rem; opacity: 0.6; margin-bottom: 5px;">Visited on: ${item.date}</span>
-            </div>
-            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 8px 0; padding-top: 8px;">
-                <small style="opacity:0.8; display:block;">${item.restaurant}</small>
-                <div style="font-size:1.2rem; margin:5px 0; color: #f1c40f;">${item.overall} ⭐</div>
-                <p style="font-size:0.85rem; line-height:1.4; opacity: 0.9;">${item.notes}</p>
-            </div>
-        </div>
-    `).join('');
-}
 
-window.delEntry = (i) => {
-    const d = JSON.parse(localStorage.getItem('foodDiary') || "[]");
-    d.splice(i, 1); 
-    localStorage.setItem('foodDiary', JSON.stringify(d)); 
-    renderDiary();
-    updateProgressBar();
-};
+    div.innerHTML = data.map(item => {
+        const flagUrl = getFlagUrl(item.country);
+        
+        // Use the same traffic light logic for the Logs
+        let scoreColor = "#e74c3c"; 
+        if (item.overall >= 8.0) scoreColor = "#27ae60";
+        else if (item.overall >= 5.0) scoreColor = "#e67e22";
 
-window.updateRank = function(category) {
-    document.querySelectorAll('.rank-opt').forEach(btn => {
-        btn.classList.toggle('active', btn.textContent.toLowerCase().trim() === category.toLowerCase());
-    });
-    const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
-    const sorted = [...data].sort((a, b) => (b[category] || 0) - (a[category] || 0));
-    const div = document.getElementById('rankings-list'); 
-    if (!div) return;
-    div.innerHTML = sorted.map((item, i) => {
-        let medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
         return `
-        <div class="diary-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:8px;">
-                <div style="color:#ff6b6b; font-weight:bold; font-size: 1.2rem;">#${i + 1}</div>
-                <div style="font-size: 1.5rem;">${medal}</div>
+            <div class="diary-card">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <img src="${flagUrl}" alt="" style="width: 30px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1);">
+                    <b style="font-size: 1.1rem;">${item.country}</b>
+                </div>
+                <small>${item.restaurant} — ${item.date}</small>
+                <div style="font-size:1.4rem; font-weight:900; color: ${scoreColor}; margin: 5px 0;">
+                    ${item.overall.toFixed(1)} <span style="font-size: 0.9rem; opacity: 0.5;">/ 10</span>
+                </div>
+                <p style="margin: 0; opacity: 0.8; font-size: 0.9rem;">${item.notes}</p>
             </div>
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-                <img src="${getFlagUrl(item.country)}" style="width:20px; border-radius:2px;">
-                <b style="font-size:1rem;">${item.country}</b>
-            </div>
-            <small>${item.restaurant}</small>
-            <div style="margin-top: 8px; background: rgba(0,0,0,0.05); padding: 5px; border-radius: 8px;">
-                <span style="font-weight:bold; font-size:1.1rem;">${item[category] || 0}</span> ⭐ 
-                <span style="opacity:0.6; font-size:0.75rem; text-transform:uppercase;">${category}</span>
-            </div>
-        </div>
         `;
     }).join('');
-    if (data.length === 0) div.innerHTML = '<p style="text-align:center; width:100%;">No logs found yet!</p>';
+}
+window.updateRank = function(category) {
+    const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    
+    // Safety check: ensure we are sorting by the correct category field
+    const sorted = [...data].sort((a, b) => b[category] - a[category]);
+    const div = document.getElementById('rankings-list'); 
+    
+    if (data.length === 0) {
+        div.innerHTML = '<p style="text-align:center; opacity:0.5; margin-top:20px;">No entries to rank yet!</p>';
+        return;
+    }
+
+    // Force layout
+    div.style.display = "block"; 
+    div.style.maxWidth = "600px";
+    div.style.margin = "0 auto";
+
+    // Update the active state of the buttons visually
+    document.querySelectorAll('.rank-opt').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${category}'`));
+    });
+
+    // Leaderboard Header - Now dynamic based on category
+    let html = `
+        <div style="display: flex; padding: 10px 15px; opacity: 0.5; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; align-items: center;">
+            <span style="width: 40px;">Pos</span>
+            <span style="flex-grow: 1; margin-left: 35px;">Country</span>
+            <span style="width: 60px; text-align: right;">${category}</span>
+        </div>
+    `;
+
+    html += sorted.map((item, i) => {
+        const flagUrl = getFlagUrl(item.country);
+        const isTop3 = i < 3;
+        const medalColor = i === 0 ? '#f1c40f' : i === 1 ? '#95a5a6' : i === 2 ? '#cd7f32' : 'transparent';
+        
+        // Traffic Light Logic
+        const score = item[category];
+        let scoreColor = "#e74c3c"; // Red
+        if (score >= 8.0) scoreColor = "#27ae60";      // Green
+        else if (score >= 5.0) scoreColor = "#e67e22"; // Orange
+        
+        return `
+            <div class="diary-card" style="display: flex; align-items: center; gap: 15px; padding: 15px; margin-bottom: 10px; border-left: 4px solid ${medalColor}; width: 100%; box-sizing: border-box;">
+                <span style="width: 25px; font-weight: 800; font-family: 'Courier New', monospace; font-size: 1.2rem; color: ${isTop3 ? medalColor : 'inherit'};">
+                    ${i + 1}
+                </span>
+                <img src="${flagUrl}" style="width: 30px; height: auto; border-radius: 3px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                <div style="flex-grow: 1; overflow: hidden;">
+                    <div style="font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.country}</div>
+                    <div style="opacity: 0.5; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.restaurant}</div>
+                </div>
+                <div style="width: 60px; text-align: right; font-weight: 900; color: ${scoreColor}; font-size: 1.2rem;">
+                    ${score.toFixed(1)}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    div.innerHTML = html;
 };
 
 // --- INIT ---
 const themeToggle = document.getElementById('theme-toggle');
+const savedTheme = localStorage.getItem('theme') || 'dark'; 
+
+document.documentElement.setAttribute('data-theme', savedTheme);
+themeToggle.checked = (savedTheme === 'dark');
+
 themeToggle.onchange = () => {
     const theme = themeToggle.checked ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
+    if (vectorMap) updateMap();
+    drawWheel(); 
 };
-if (localStorage.getItem('theme') === 'dark') {
-    themeToggle.checked = true; document.documentElement.setAttribute('data-theme', 'dark');
-}
 
 document.getElementById('btn-spin').onclick = spin;
 document.getElementById('btn-close').onclick = () => {
@@ -353,10 +450,11 @@ document.getElementById('btn-close').onclick = () => {
     popup.classList.remove("show");
     setTimeout(() => { popup.classList.add("hidden"); drawWheel(); }, 300);
 };
+
 document.getElementById('btn-reset').onclick = () => { 
-    if(confirm("Reset everything?")) { localStorage.removeItem("spunCountries"); location.reload(); }
+    if(confirm("Reset everything?")) { localStorage.clear(); location.reload(); }
 };
 
 setupDL(); 
-drawWheel(); 
 updateProgressBar();
+setTimeout(drawWheel, 100);
