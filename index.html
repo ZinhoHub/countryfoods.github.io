@@ -3,48 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Country Spinner Wheel</title>
+    <title>Global Eats Spinner</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Country Spinner</h1>
-
-    <!-- Theme toggle – top right -->
-    <div class="theme-toggle-wrapper">
-        <label class="theme-toggle">
-            <input type="checkbox" id="theme-toggle" />
-            <span class="slider">
-                <span class="icon sun">☀️</span>
-                <span class="icon moon">🌙</span>
-                <span class="knob"></span>
-            </span>
-        </label>
-    </div>
-
-    <!-- Wheel wrapper -->
-    <div class="wheel-wrapper">
-        <!-- Animated wheel only -->
-        <div class="wheel-container">
-            <canvas id="wheel" width="520" height="520"></canvas>
+    <header class="app-header">
+        <h1>Country Spinner</h1>
+        <div class="theme-switch-container">
+            <label class="theme-toggle">
+                <input type="checkbox" id="theme-toggle">
+                <span class="slider">
+                    <span class="knob">
+                        <span class="icon sun">☀️</span>
+                        <span class="icon moon">🌙</span>
+                    </span>
+                </span>
+            </label>
         </div>
+    </header>
 
-        <!-- Fixed pointer – does NOT rotate -->
-        <div class="pointer-fixed"></div>
+    <nav class="tab-nav">
+        <button id="tab-wheel" class="tab-btn active">The Wheel</button>
+      	<button id="tab-diary" class="tab-btn">Add Review</button>
+        <button id="tab-history" class="tab-btn">My Logs</button>
+        <button id="tab-rankings" class="tab-btn">Rankings</button>
+    </nav>
 
-        <!-- Spin button – fixed in center -->
-        <button id="btn-spin" class="spin-button">Spin</button>
+    <main id="wheel-section" class="content-section">
+        <div class="wheel-wrapper">
+            <div class="pointer-fixed"></div>
+            <div class="wheel-container">
+                <canvas id="wheel" width="520" height="520"></canvas>
+            </div>
+            <button id="btn-spin" class="spin-button">SPIN</button>
+        </div>
+        <button id="btn-reset">Reset Spun Countries</button>
+    </main>
+
+    <main id="history-section" class="content-section hidden">
+        <h2>Review History</h2>
+        <div id="diary-display" class="diary-grid"></div>
+    </main>
+
+    <main id="diary-section" class="content-section hidden">
+        <div class="vertical-form">
+            
+            <label for="log-country">Which Country?</label>
+            <input type="text" id="log-country" list="country-options" placeholder="Search countries...">
+            <datalist id="country-options"></datalist>
+
+            <label for="log-restaurant">Restaurant Name</label>
+            <input type="text" id="log-restaurant" placeholder="Where did you eat?">
+
+            <div class="rating-grid">
+                <div class="rating-pod">
+                    <div class="pod-label">Food</div>
+                    <div class="pod-value"><span id="val-food">5.0</span></div>
+                    <input type="range" id="rate-food" min="1" max="10" step="0.5" value="5" class="slider-food">
+                </div>
+
+                <div class="rating-pod">
+                    <div class="pod-label">Service</div>
+                    <div class="pod-value"><span id="val-service">5.0</span></div>
+                    <input type="range" id="rate-service" min="1" max="10" step="0.5" value="5" class="slider-service">
+                </div>
+
+                <div class="rating-pod">
+                    <div class="pod-label">Vibe</div>
+                    <div class="pod-value"><span id="val-vibe">5.0</span></div>
+                    <input type="range" id="rate-vibe" min="1" max="10" step="0.5" value="5" class="slider-vibe">
+                </div>
+            </div>
+
+            <div class="overall-score-display" id="overall-box">
+                Overall: <span id="overall-score">5.0</span> / 10
+            </div>
+
+            <label for="log-notes">Notes</label>
+            <textarea id="log-notes" rows="3" placeholder="What was the best dish?"></textarea>
+
+            <button id="btn-save-log" style="background: #27ae60; margin-top: 10px;">Save Review</button>
+        </div>
+    </main>
+
+    <main id="rankings-section" class="content-section hidden">
+    <div class="rank-selector">
+        <button class="rank-opt active" onclick="updateRank('overall')">Overall</button>
+        <button class="rank-opt" onclick="updateRank('food')">Food</button>
+        <button class="rank-opt" onclick="updateRank('service')">Service</button>
+        <button class="rank-opt" onclick="updateRank('vibe')">Vibe</button>
     </div>
 
-    <div class="controls">
-        <button id="btn-reset">Reset Game</button>
-    </div>
+    <div id="rankings-list" class="diary-grid">
+        </div>
+</main>
 
-    <!-- Popup -->
     <div id="popup" class="popup hidden">
         <div class="popup-content">
-            <h2 id="popupCountry"></h2>
-            <img id="popupFlag" src="" alt="Country Flag">
-            <button id="btn-close">Close</button>
+            <h2 id="popupCountry">Country</h2>
+            <img id="popupFlag" src="" alt="Flag">
+            <button id="btn-close">Great!</button>
         </div>
     </div>
 
