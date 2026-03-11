@@ -76,6 +76,22 @@ const ctx = canvas.getContext("2d");
 let currentAngle = 0;
 let spinning = false;
 
+// --- PROGRESS BAR (Based on Unique Reviews) ---
+function updateProgressBar() {
+    const diary = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    const uniqueCountriesEaten = new Set(diary.map(entry => entry.country));
+    
+    const total = countriesFull.length;
+    const completed = uniqueCountriesEaten.size;
+    const percentage = (completed / total) * 100;
+    
+    const percentEl = document.getElementById('progress-percent');
+    const fillEl = document.getElementById('progress-fill');
+    
+    if (percentEl) percentEl.textContent = `${completed} / ${total}`;
+    if (fillEl) fillEl.style.width = `${percentage}%`;
+}
+
 // --- FLAG HELPER ---
 function getFlagUrl(countryName) {
     const country = countriesFull.find(c => c.name.toLowerCase() === countryName.toLowerCase());
@@ -95,9 +111,16 @@ function drawWheel() {
         const start = currentAngle + i * arc;
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, start, start + arc);
         ctx.fillStyle = `hsl(${i * (360 / countries.length)}, 70%, 60%)`; ctx.fill(); ctx.stroke();
-        ctx.save(); ctx.translate(cx, cy); ctx.rotate(start + arc / 2);
-        ctx.fillStyle = "white"; ctx.font = "8px Arial"; ctx.fillText(c.code, r - 17, 3);
-        ctx.restore();
+        
+        if (countries.length < 60) {
+            ctx.save(); ctx.translate(cx, cy); ctx.rotate(start + arc / 2);
+            ctx.fillStyle = "white"; ctx.font = "bold 10px Arial"; ctx.textAlign = "right";
+            ctx.fillText(c.code, r - 15, 4); ctx.restore();
+        } else {
+            ctx.save(); ctx.translate(cx, cy); ctx.rotate(start + arc / 2);
+            ctx.fillStyle = "white"; ctx.font = "6px Arial"; ctx.fillText(c.code, r - 17, 3);
+            ctx.restore();
+        }
     });
 }
 
@@ -132,7 +155,6 @@ function finishSpin() {
     document.getElementById("popupCountry").textContent = winner.name;
     flagImg.src = `https://flagcdn.com/w320/${winner.code.toLowerCase()}.png`;
 
-    // AUTO-FILL
     document.getElementById('log-country').value = winner.name;
 
     flagImg.onload = () => {
@@ -188,11 +210,16 @@ function setupDL() {
 
 document.getElementById('btn-save-log').onclick = () => {
     const country = document.getElementById('log-country').value;
+    const dateInput = document.getElementById('log-date').value; // Custom date from input
     const food = parseFloat(document.getElementById('rate-food').value);
     const service = parseFloat(document.getElementById('rate-service').value);
     const vibe = parseFloat(document.getElementById('rate-vibe').value);
     const overall = parseFloat(document.getElementById('overall-score').textContent);
+    
     if (!country) return alert("Select a country!");
+    
+    // Fallback to today's date if the user leaves the date input empty
+    const finalDate = dateInput ? new Date(dateInput).toLocaleDateString() : new Date().toLocaleDateString();
 
     const diary = JSON.parse(localStorage.getItem('foodDiary') || "[]");
     diary.unshift({
@@ -200,35 +227,56 @@ document.getElementById('btn-save-log').onclick = () => {
         restaurant: document.getElementById('log-restaurant').value || "Unnamed",
         food, service, vibe, overall,
         notes: document.getElementById('log-notes').value,
-        date: new Date().toLocaleDateString()
+        date: finalDate
     });
     localStorage.setItem('foodDiary', JSON.stringify(diary));
-    alert("Saved!"); switchTab('history');
+    
+    updateProgressBar();
+    alert("Saved!"); 
+    switchTab('history');
 };
 
 function renderDiary() {
     const div = document.getElementById('diary-display');
     const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    
+    if (data.length === 0) {
+        div.innerHTML = '<p style="text-align:center; width:100%;">No logs found yet!</p>';
+        return;
+    }
+
     div.innerHTML = data.map((item, i) => `
-        <div class="diary-card">
-            <button class="delete-btn" onclick="delEntry(${i})">×</button>
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
-                <img src="${getFlagUrl(item.country)}" style="width:24px; border-radius:3px;">
-                <b style="font-size:1.1rem;">${item.country}</b>
+        <div class="diary-card" style="position: relative; padding-top: 15px;">
+            <button class="delete-btn" onclick="delEntry(${i})" style="position: absolute; top: 10px; right: 10px; z-index: 10;">×</button>
+            
+            <div style="display:flex; flex-direction: column; gap: 2px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <img src="${getFlagUrl(item.country)}" style="width:20px; border-radius:3px;">
+                    <b style="font-size:1.1rem;">${item.country}</b>
+                </div>
+                
+                <span style="font-size: 0.75rem; opacity: 0.6; margin-bottom: 5px;">
+                     Visited on: ${item.date}
+                </span>
             </div>
-            <small style="opacity:0.8;">${item.restaurant}</small>
-            <div style="font-size:1.2rem; margin:8px 0">${item.overall} ⭐</div>
-            <p style="font-size:0.85rem; line-height:1.4;">${item.notes}</p>
+
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 8px 0; padding-top: 8px;">
+                <small style="opacity:0.8; display:block;">${item.restaurant}</small>
+                <div style="font-size:1.2rem; margin:5px 0; color: #f1c40f;">${item.overall} ⭐</div>
+                <p style="font-size:0.85rem; line-height:1.4; opacity: 0.9;">${item.notes}</p>
+            </div>
         </div>
     `).join('');
 }
 
 window.delEntry = (i) => {
     const d = JSON.parse(localStorage.getItem('foodDiary') || "[]");
-    d.splice(i, 1); localStorage.setItem('foodDiary', JSON.stringify(d)); renderDiary();
+    d.splice(i, 1); 
+    localStorage.setItem('foodDiary', JSON.stringify(d)); 
+    renderDiary();
+    updateProgressBar();
 };
 
-// --- RANKINGS ---
 window.updateRank = function(category) {
     document.querySelectorAll('.rank-opt').forEach(btn => {
         if (btn.textContent.toLowerCase().trim() === category.toLowerCase()) btn.classList.add('active');
@@ -275,10 +323,23 @@ if (localStorage.getItem('theme') === 'dark') {
 }
 
 document.getElementById('btn-spin').onclick = spin;
+
 document.getElementById('btn-close').onclick = () => {
     const popup = document.getElementById("popup");
     popup.classList.remove("show");
-    setTimeout(() => popup.classList.add("hidden"), 300);
+    setTimeout(() => {
+        popup.classList.add("hidden");
+        drawWheel(); 
+    }, 300);
 };
-document.getElementById('btn-reset').onclick = () => { if(confirm("Reset?")) { localStorage.removeItem("spunCountries"); location.reload(); }};
-setupDL(); drawWheel();
+
+document.getElementById('btn-reset').onclick = () => { 
+    if(confirm("Reset everything? This will clear your spun list and reload the wheel.")) { 
+        localStorage.removeItem("spunCountries"); 
+        location.reload(); 
+    }
+};
+
+setupDL(); 
+drawWheel(); 
+updateProgressBar();
