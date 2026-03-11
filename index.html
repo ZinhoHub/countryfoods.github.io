@@ -21,21 +21,23 @@
             </label>
         </div>
     </header>
-  <div class="progress-container">
-    <div class="progress-info">
-        <span>World Exploration</span>
-        <span id="progress-percent">0/195</span>
+
+    <div class="progress-container">
+        <div class="progress-info">
+            <span>World Exploration</span>
+            <span id="progress-percent">0/195</span>
+        </div>
+        <div class="progress-bar-bg">
+            <div id="progress-fill" class="progress-fill"></div>
+        </div>
     </div>
-    <div class="progress-bar-bg">
-        <div id="progress-fill" class="progress-fill"></div>
-    </div>
-</div>
 
     <nav class="tab-nav">
-        <button id="tab-wheel" class="tab-btn active">The Wheel</button>
-      	<button id="tab-diary" class="tab-btn">Add Review</button>
-        <button id="tab-history" class="tab-btn">My Logs</button>
-        <button id="tab-rankings" class="tab-btn">Rankings</button>
+        <button id="tab-wheel" class="tab-btn active">🎯 Wheel</button>
+        <button id="tab-diary" class="tab-btn">🍽️ Add Review</button>
+        <button id="tab-history" class="tab-btn">📖 Logs</button>
+        <button id="tab-rankings" class="tab-btn">🏆 Rankings</button>
+        <button id="tab-stats" class="tab-btn">📊 Stats</button>
     </nav>
 
     <main id="wheel-section" class="content-section">
@@ -56,16 +58,15 @@
 
     <main id="diary-section" class="content-section hidden">
         <div class="vertical-form">
-            
             <label for="log-country">Which Country?</label>
             <input type="text" id="log-country" list="country-options" placeholder="Search countries...">
             <datalist id="country-options"></datalist>
-						<label for="log-date">Date Visited</label>
-<input type="date" id="log-date">
 
-<label for="log-restaurant">Restaurant Name</label>
-<input type="text" id="log-restaurant" placeholder="e.g. Din Tai Fung">
+            <label for="log-date">Date Visited</label>
+            <input type="date" id="log-date">
 
+            <label for="log-restaurant">Restaurant Name</label>
+            <input type="text" id="log-restaurant" placeholder="e.g. Din Tai Fung">
 
             <div class="rating-grid">
                 <div class="rating-pod">
@@ -99,14 +100,40 @@
     </main>
 
     <main id="rankings-section" class="content-section hidden">
-    <div class="rank-selector">
-        <button class="rank-opt active" onclick="updateRank('overall')">Overall</button>
-        <button class="rank-opt" onclick="updateRank('food')">Food</button>
-        <button class="rank-opt" onclick="updateRank('service')">Service</button>
-        <button class="rank-opt" onclick="updateRank('vibe')">Vibe</button>
+        <div class="rank-selector">
+            <button class="rank-opt active" onclick="updateRank('overall')">Overall</button>
+            <button class="rank-opt" onclick="updateRank('food')">Food</button>
+            <button class="rank-opt" onclick="updateRank('service')">Service</button>
+            <button class="rank-opt" onclick="updateRank('vibe')">Vibe</button>
+        </div>
+        <div id="rankings-list" class="diary-grid"></div>
+    </main>
+
+    <main id="stats-section" class="content-section hidden">
+    <h2 style="text-align: center; margin-bottom: 20px;">Palate Insights</h2>
+    
+    <div class="stats-grid">
+        <div class="stat-card" style="grid-column: span 2;">
+            <h3>Global Avg</h3>
+            <div id="stat-avg-rating" class="stat-value">0.0</div>
+            <small>Score Across All Meals</small>
+        </div>
+        <div class="stat-card">
+            <h3>Best Continent</h3>
+            <div id="stat-best-continent" class="stat-value">-</div>
+            <small>Highest Rating Average</small>
+        </div>
+        <div class="stat-card">
+            <h3>Most Visited</h3>
+            <div id="stat-most-visited" class="stat-value">-</div>
+            <small>Favorite Region</small>
+        </div>
     </div>
 
-    <div id="rankings-list" class="diary-grid">
+    <div id="continent-averages" class="continent-list-container"></div>
+</main>
+
+    <div id="continent-averages" class="continent-list-container">
         </div>
 </main>
 
