@@ -21,6 +21,15 @@
             </label>
         </div>
     </header>
+  <div class="progress-container">
+    <div class="progress-info">
+        <span>World Exploration</span>
+        <span id="progress-percent">0/195</span>
+    </div>
+    <div class="progress-bar-bg">
+        <div id="progress-fill" class="progress-fill"></div>
+    </div>
+</div>
 
     <nav class="tab-nav">
         <button id="tab-wheel" class="tab-btn active">The Wheel</button>
@@ -51,9 +60,12 @@
             <label for="log-country">Which Country?</label>
             <input type="text" id="log-country" list="country-options" placeholder="Search countries...">
             <datalist id="country-options"></datalist>
+						<label for="log-date">Date Visited</label>
+<input type="date" id="log-date">
 
-            <label for="log-restaurant">Restaurant Name</label>
-            <input type="text" id="log-restaurant" placeholder="Where did you eat?">
+<label for="log-restaurant">Restaurant Name</label>
+<input type="text" id="log-restaurant" placeholder="e.g. Din Tai Fung">
+
 
             <div class="rating-grid">
                 <div class="rating-pod">
