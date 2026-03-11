@@ -1,4 +1,3 @@
-// Full list of countries
 const countriesFull = [
     {name: "Afghanistan", code: "AF"}, {name: "Albania", code: "AL"}, {name: "Algeria", code: "DZ"},
     {name: "Andorra", code: "AD"}, {name: "Angola", code: "AO"}, {name: "Antigua and Barbuda", code: "AG"},
@@ -69,59 +68,35 @@ const countriesFull = [
     {name: "Zimbabwe", code: "ZW"}
 ];
 
-let countries = [...countriesFull];
 let spun = JSON.parse(localStorage.getItem("spunCountries") || "[]");
-countries = countries.filter(c => !spun.includes(c.name));
+let countries = countriesFull.filter(c => !spun.includes(c.name));
 
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
-const centerX = canvas.width / 2;
-const centerY = canvas.height / 2;
-const radius = canvas.width / 2.05 - 1;
-
 let currentAngle = 0;
 let spinning = false;
 
-const colors = [
-    "#FF6B6B", "#FFD93D", "#6BCB77", "#4D96FF", "#9D4EDD", "#FF9F1C",
-    "#FF85E6", "#52D3D8", "#FFCC5C", "#4ECDC4"
-];
+// --- FLAG HELPER ---
+function getFlagUrl(countryName) {
+    const country = countriesFull.find(c => c.name.toLowerCase() === countryName.toLowerCase());
+    return country ? `https://flagcdn.com/w40/${country.code.toLowerCase()}.png` : '';
+}
 
+// --- WHEEL ---
 function drawWheel() {
-    if (countries.length === 0) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.font = "bold 28px Arial";
-        ctx.fillStyle = "#e74c3c";
-        ctx.textAlign = "center";
-        ctx.fillText("All countries spun!", centerX, centerY);
-        return;
-    }
-
-    const arc = (2 * Math.PI) / countries.length;
+    const cx = canvas.width / 2, cy = canvas.height / 2, r = canvas.width / 2 - 10;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    countries.forEach((country, i) => {
+    if (countries.length === 0) {
+        ctx.font = "bold 20px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "center";
+        ctx.fillText("All countries spun!", cx, cy); return;
+    }
+    const arc = (2 * Math.PI) / countries.length;
+    countries.forEach((c, i) => {
         const start = currentAngle + i * arc;
-        const end = start + arc;
-
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.arc(centerX, centerY, radius, start, end);
-        ctx.closePath();
-
-        ctx.fillStyle = colors[i % colors.length];
-        ctx.fill();
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(start + arc / 2);
-        ctx.textAlign = "right";
-        ctx.fillStyle = "black";
-        ctx.font = "bold 9px Arial";
-        ctx.fillText(country.code, radius - 3, 3);
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, start, start + arc);
+        ctx.fillStyle = `hsl(${i * (360 / countries.length)}, 70%, 60%)`; ctx.fill(); ctx.stroke();
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(start + arc / 2);
+        ctx.fillStyle = "white"; ctx.font = "8px Arial"; ctx.fillText(c.code, r - 17, 3);
         ctx.restore();
     });
 }
@@ -129,100 +104,181 @@ function drawWheel() {
 function spin() {
     if (spinning || countries.length === 0) return;
     spinning = true;
-
-    const extraSpins = 5 + Math.random() * 5;
-    const targetAngle = extraSpins * 2 * Math.PI + currentAngle;
-    const duration = 6800;
-    const startTime = performance.now();
+    const duration = 4000, start = performance.now();
+    const target = Math.PI * 10 + Math.random() * Math.PI * 2;
+    document.getElementById('btn-spin').style.pointerEvents = 'none';
+    document.getElementById('btn-spin').style.opacity = '0.7';
 
     function animate(time) {
-        const elapsed = time - startTime;
-        let progress = elapsed / duration;
-        if (progress > 1) progress = 1;
-
-        const ease = 1 - Math.pow(1 - progress, 4);
-        currentAngle = targetAngle * ease;
-
+        let elapsed = time - start, progress = Math.min(elapsed / duration, 1);
+        let ease = 1 - Math.pow(1 - progress, 3);
+        currentAngle = target * ease;
         drawWheel();
-
-        if (progress < 1) {
-            requestAnimationFrame(animate);
-        } else {
-            spinning = false;
-            finishSpin();
-        }
+        if (progress < 1) requestAnimationFrame(animate); else finishSpin();
     }
-
     requestAnimationFrame(animate);
 }
 
 function finishSpin() {
+    spinning = false;
     const arc = (2 * Math.PI) / countries.length;
-    let finalAngle = currentAngle % (2 * Math.PI);
-    if (finalAngle < 0) finalAngle += 2 * Math.PI;
+    let norm = ((3 * Math.PI / 2) - (currentAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+    const winner = countries[Math.floor(norm / arc) % countries.length];
+    document.getElementById('btn-spin').style.pointerEvents = 'auto';
+    document.getElementById('btn-spin').style.opacity = '1';
+    
+    const popup = document.getElementById("popup");
+    const flagImg = document.getElementById("popupFlag");
+    document.getElementById("popupCountry").textContent = winner.name;
+    flagImg.src = `https://flagcdn.com/w320/${winner.code.toLowerCase()}.png`;
 
-    const arrowAngle = -Math.PI / 2;
-    let normalized = (arrowAngle - finalAngle + 2 * Math.PI) % (2 * Math.PI);
-    let index = Math.floor(normalized / arc) % countries.length;
+    // AUTO-FILL
+    document.getElementById('log-country').value = winner.name;
 
-    const winner = countries[index];
-    showPopup(winner);
+    flagImg.onload = () => {
+        popup.classList.remove("hidden");
+        setTimeout(() => popup.classList.add("show"), 10);
+    };
+
     spun.push(winner.name);
     localStorage.setItem("spunCountries", JSON.stringify(spun));
+    countries = countriesFull.filter(c => !spun.includes(c.name));
 }
 
-function showPopup(country) {
-    document.getElementById("popupCountry").textContent = country.name;
-    document.getElementById("popupFlag").src = `https://flagcdn.com/w320/${country.code.toLowerCase()}.png`;
-    document.getElementById("popup").classList.remove("hidden");
-}
+// --- TABS ---
+const tabs = {
+    wheel: { btn: document.getElementById('tab-wheel'), sec: document.getElementById('wheel-section') },
+    diary: { btn: document.getElementById('tab-diary'), sec: document.getElementById('diary-section') },
+    history: { btn: document.getElementById('tab-history'), sec: document.getElementById('history-section') },
+    rankings: { btn: document.getElementById('tab-rankings'), sec: document.getElementById('rankings-section') }
+};
 
-function closePopup() {
-    document.getElementById("popup").classList.add("hidden");
-}
-
-function resetGame() {
-    if (!confirm("Reset all spun countries and start over?")) return;
-    localStorage.removeItem("spunCountries");
-    location.reload();
-}
-
-// Event listeners
-document.getElementById("btn-spin")?.addEventListener("click", spin);
-document.getElementById("btn-reset")?.addEventListener("click", resetGame);
-document.getElementById("btn-close")?.addEventListener("click", closePopup);
-
-// Initial draw
-drawWheel();
-
-// Theme handling
-const themeToggle = document.getElementById('theme-toggle');
-const htmlRoot = document.documentElement;
-
-function setTheme(theme) {
-    htmlRoot.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-    if (themeToggle) themeToggle.checked = (theme === 'dark');
-}
-
-function initTheme() {
-    let theme = localStorage.getItem('theme');
-    if (!theme) {
-        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    setTheme(theme);
-}
-
-if (themeToggle) {
-    themeToggle.addEventListener('change', () => {
-        setTheme(themeToggle.checked ? 'dark' : 'light');
+function switchTab(k) {
+    Object.keys(tabs).forEach(x => {
+        tabs[x].btn.classList.toggle('active', x === k);
+        tabs[x].sec.classList.toggle('hidden', x !== k);
     });
+    if (k === 'history') renderDiary();
+    if (k === 'rankings') window.updateRank('overall'); 
+}
+Object.keys(tabs).forEach(k => tabs[k].btn.onclick = () => switchTab(k));
+
+// --- RATINGS ---
+function updateAvg() {
+    const f = parseFloat(document.getElementById('rate-food').value);
+    const s = parseFloat(document.getElementById('rate-service').value);
+    const v = parseFloat(document.getElementById('rate-vibe').value);
+    document.getElementById('val-food').textContent = f.toFixed(1);
+    document.getElementById('val-service').textContent = s.toFixed(1);
+    document.getElementById('val-vibe').textContent = v.toFixed(1);
+    const avg = ((f + s + v) / 3).toFixed(1);
+    const scoreEl = document.getElementById('overall-score');
+    const boxEl = document.getElementById('overall-box'); 
+    scoreEl.textContent = avg;
+    if (avg >= 8) { boxEl.style.background = "#27ae60"; boxEl.style.color = "#fff"; }
+    else if (avg >= 5) { boxEl.style.background = "#f1c40f"; boxEl.style.color = "#000"; }
+    else { boxEl.style.background = "#e74c3c"; boxEl.style.color = "#fff"; }
+}
+document.querySelectorAll('input[type="range"]').forEach(i => i.oninput = updateAvg);
+
+function setupDL() {
+    const dl = document.getElementById('country-options');
+    countriesFull.forEach(c => { let o = document.createElement('option'); o.value = c.name; dl.appendChild(o); });
 }
 
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-    if (!localStorage.getItem('theme')) {
-        setTheme(e.matches ? 'dark' : 'light');
-    }
-});
+document.getElementById('btn-save-log').onclick = () => {
+    const country = document.getElementById('log-country').value;
+    const food = parseFloat(document.getElementById('rate-food').value);
+    const service = parseFloat(document.getElementById('rate-service').value);
+    const vibe = parseFloat(document.getElementById('rate-vibe').value);
+    const overall = parseFloat(document.getElementById('overall-score').textContent);
+    if (!country) return alert("Select a country!");
 
-initTheme();
+    const diary = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    diary.unshift({
+        country, 
+        restaurant: document.getElementById('log-restaurant').value || "Unnamed",
+        food, service, vibe, overall,
+        notes: document.getElementById('log-notes').value,
+        date: new Date().toLocaleDateString()
+    });
+    localStorage.setItem('foodDiary', JSON.stringify(diary));
+    alert("Saved!"); switchTab('history');
+};
+
+function renderDiary() {
+    const div = document.getElementById('diary-display');
+    const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    div.innerHTML = data.map((item, i) => `
+        <div class="diary-card">
+            <button class="delete-btn" onclick="delEntry(${i})">×</button>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
+                <img src="${getFlagUrl(item.country)}" style="width:24px; border-radius:3px;">
+                <b style="font-size:1.1rem;">${item.country}</b>
+            </div>
+            <small style="opacity:0.8;">${item.restaurant}</small>
+            <div style="font-size:1.2rem; margin:8px 0">${item.overall} ⭐</div>
+            <p style="font-size:0.85rem; line-height:1.4;">${item.notes}</p>
+        </div>
+    `).join('');
+}
+
+window.delEntry = (i) => {
+    const d = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    d.splice(i, 1); localStorage.setItem('foodDiary', JSON.stringify(d)); renderDiary();
+};
+
+// --- RANKINGS ---
+window.updateRank = function(category) {
+    document.querySelectorAll('.rank-opt').forEach(btn => {
+        if (btn.textContent.toLowerCase().trim() === category.toLowerCase()) btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
+
+    const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    const sorted = [...data].sort((a, b) => (b[category] || 0) - (a[category] || 0));
+    const div = document.getElementById('rankings-list'); 
+    if (!div) return;
+
+    div.innerHTML = sorted.map((item, i) => {
+        let medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+        return `
+        <div class="diary-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:8px;">
+                <div style="color:#ff6b6b; font-weight:bold; font-size: 1.2rem;">#${i + 1}</div>
+                <div style="font-size: 1.5rem;">${medal}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:5px;">
+                <img src="${getFlagUrl(item.country)}" style="width:20px; border-radius:2px;">
+                <b style="font-size:1rem;">${item.country}</b>
+            </div>
+            <small>${item.restaurant}</small>
+            <div style="margin-top: 8px; background: rgba(0,0,0,0.05); padding: 5px; border-radius: 8px;">
+                <span style="font-weight:bold; font-size:1.1rem;">${item[category] || 0}</span> ⭐ 
+                <span style="opacity:0.6; font-size:0.75rem; text-transform:uppercase;">${category}</span>
+            </div>
+        </div>
+        `;
+    }).join('');
+    if (data.length === 0) div.innerHTML = '<p style="text-align:center; width:100%;">No logs found yet!</p>';
+};
+
+// --- INIT ---
+const themeToggle = document.getElementById('theme-toggle');
+themeToggle.onchange = () => {
+    const theme = themeToggle.checked ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+};
+if (localStorage.getItem('theme') === 'dark') {
+    themeToggle.checked = true; document.documentElement.setAttribute('data-theme', 'dark');
+}
+
+document.getElementById('btn-spin').onclick = spin;
+document.getElementById('btn-close').onclick = () => {
+    const popup = document.getElementById("popup");
+    popup.classList.remove("show");
+    setTimeout(() => popup.classList.add("hidden"), 300);
+};
+document.getElementById('btn-reset').onclick = () => { if(confirm("Reset?")) { localStorage.removeItem("spunCountries"); location.reload(); }};
+setupDL(); drawWheel();
