@@ -57,7 +57,13 @@
     </main>
 
     <main id="history-section" class="content-section hidden">
-        <h2>Review History</h2>
+        
+        <div class="rank-selector">
+            <button class="rank-opt active" id="sort-recent" onclick="renderDiary('recent')">Newest</button>
+            <button class="rank-opt" id="sort-alpha" onclick="renderDiary('alpha')">A-Z</button>
+            <button class="rank-opt" id="sort-continent" onclick="renderDiary('continent')">Continent</button>
+        </div>
+
         <div id="diary-display" class="diary-grid"></div>
     </main>
 
