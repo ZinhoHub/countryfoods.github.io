@@ -1,2 +1,2 @@
 # countryfoods.github.io
-foods
+bored and fun 
