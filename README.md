@@ -17,7 +17,8 @@ Reviews are shared. Only the list of countries *spun but not yet reviewed* is pe
 Until this is done the site still works, but shows **"Saved on this device only"** and keeps reviews in each browser separately. Once connected, any reviews already saved in a browser are uploaded to the shared list automatically the next time that browser opens the site.
 
 1. Open the project on Vercel: https://vercel.com/zinho1/countryfoods-github-io
-2. Go to the **Storage** tab → **Create Database** → pick **Redis** (Upstash) → create it on the free plan.
+2. Go to the **Storage** tab → **Create Database** → pick **Upstash** (Serverless DB → Redis) → create it on the free plan.
+   Use Upstash specifically, not the "Redis" (Redis Labs) option: the Redis Labs free tier is RAM-only with no persistence, so a restart would wipe every review.
 3. When asked, **connect it to this project** (all environments). Vercel adds the `KV_REST_API_URL` and `KV_REST_API_TOKEN` environment variables for you.
 4. Go to **Deployments** → open the latest one → **Redeploy** (env vars only apply to new deployments).
 5. Reload the site. The pill under the title should now say **"Shared with the group"**.
