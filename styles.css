@@ -456,16 +456,18 @@ img { display: block; }
 .result-actions .btn { flex: 1; }
 
 /* Up next: picked countries waiting for a meal */
-.up-next { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.up-next { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; width: 100%; min-width: 0; }
 .up-next-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .up-next-head .btn-link { white-space: nowrap; flex: none; }
 .up-next-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
     gap: 10px;
+    min-width: 0;
 }
 .up-next-card {
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    min-width: 0; /* let long names truncate instead of stretching the card */
     padding: 10px 12px 10px 10px;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -475,7 +477,7 @@ img { display: block; }
 }
 .up-next-main {
     display: flex; align-items: center; gap: 10px;
-    flex: 1; min-width: 0;
+    flex: 1 1 0; min-width: 0; overflow: hidden;
     background: none; border: none; padding: 4px;
     text-align: left; cursor: pointer; border-radius: 8px;
 }
