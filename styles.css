@@ -432,12 +432,28 @@ img { display: block; }
     width: 100%;
     max-width: 620px;
     aspect-ratio: 1 / 1;
+    min-height: 0;
+    overflow: hidden;
     margin: 0 auto;
     touch-action: pan-y;      /* vertical swipes still scroll the page at world view */
 }
 .globe-stage.is-zoomed { touch-action: none; }
 .globe-stage.is-rolling { pointer-events: none; }
-.globe-canvas { display: block; cursor: grab; }
+/* Absolutely positioned so the canvas never dictates the stage's size (it follows the stage, not the other way round). */
+.globe-canvas { position: absolute; inset: 0; display: block; cursor: grab; }
+
+/* Floating pick button over the globe — mobile only; desktop uses the side panel. */
+.globe-pick {
+    display: none;
+    position: absolute;
+    left: 50%; bottom: 44px;
+    transform: translateX(-50%);
+    z-index: 3;
+    padding: 12px 22px;
+    border-radius: 999px;
+    white-space: nowrap;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), 0 6px 18px rgba(232, 88, 42, 0.28);
+}
 .globe-stage:active .globe-canvas { cursor: grabbing; }
 .globe-card .map-legend { position: static; justify-content: center; padding: 8px 4px 4px; }
 
@@ -445,6 +461,14 @@ img { display: block; }
     .explore-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); align-items: start; }
     .explore-actions { padding-top: 12px; }
     .up-next-list { grid-template-columns: 1fr; }
+}
+@media (max-width: 899px) {
+    /* Shorter globe so the result card fits on screen underneath it. */
+    .globe-stage { aspect-ratio: auto; height: min(72vw, 300px); max-width: none; }
+    .globe-card { padding: 8px 8px 4px; }
+    .globe-pick { display: inline-flex; }
+    .explore-side .explore-actions { display: none; }
+    .globe-card .map-legend { font-size: 0.68rem; padding: 6px 4px 2px; }
 }
 
 /* Explore actions & result */

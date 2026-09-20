@@ -339,6 +339,7 @@ window.unpick = async function (code) {
         currentPick = null;
         $('result-card').classList.add('hidden');
         $('explore-actions').classList.remove('hidden');
+    $('btn-pick-mobile').classList.remove('hidden');
             exploreMap.resetZoom(700);
     }
     refreshDerived();
@@ -438,6 +439,7 @@ async function choose(code, { animate }) {
     picking = true;
     hideTooltip();
     $('btn-pick').disabled = true;
+    $('btn-pick-mobile').classList.add('hidden');
     $('result-card').classList.add('hidden');
 
     if (exploreMap.isZoomed()) await exploreMap.resetZoom(500);
@@ -552,17 +554,24 @@ function showResult(country) {
     $('btn-pick').disabled = false;
     $('log-country').value = country.name;
     loadRestaurants(country);
+    // On phones, line the globe up at the top so the country and its card are visible together.
+    if (window.matchMedia('(max-width: 899px)').matches) {
+        const top = document.querySelector('.globe-card').getBoundingClientRect().top + window.scrollY - 8;
+        window.scrollTo({ top, behavior: 'smooth' });
+    }
 }
 
 async function clearPick() {
     currentPick = null;
     $('result-card').classList.add('hidden');
     $('explore-actions').classList.remove('hidden');
+    $('btn-pick-mobile').classList.remove('hidden');
     refreshDerived();
     if (exploreMap.isZoomed()) await exploreMap.resetZoom(900);
 }
 
 $('btn-pick').onclick = pickRandom;
+$('btn-pick-mobile').onclick = pickRandom;
 $('btn-again').onclick = async () => {
     currentPick = null;
     $('result-card').classList.add('hidden');
@@ -580,6 +589,7 @@ $('btn-reset').onclick = async () => {
         currentPick = null;
         $('result-card').classList.add('hidden');
         $('explore-actions').classList.remove('hidden');
+    $('btn-pick-mobile').classList.remove('hidden');
             refreshDerived();
         exploreMap.resetZoom(700);
         showToast('Pool reset');

@@ -190,7 +190,7 @@
                 const state = this.states[code];
                 const big = state === 'selected' || state === 'lit';
                 ctx.beginPath();
-                ctx.arc(pt[0], pt[1], big ? 6 : 3.2, 0, Math.PI * 2);
+                ctx.arc(pt[0], pt[1], big ? 6 : 2 + 0.5 * Math.min(this.zoom, 4), 0, Math.PI * 2);
                 ctx.fillStyle = this.fillFor(state, code, true);
                 ctx.fill();
                 ctx.strokeStyle = state === 'selected' ? colors.selectedStroke : colors.stroke;
@@ -403,7 +403,7 @@
                 if (this.rollTimer) return;
                 this.cancelAnimation();
                 pointers.set(e.pointerId, local(e));
-                el.setPointerCapture(e.pointerId);
+                try { el.setPointerCapture(e.pointerId); } catch (_) { /* synthetic events have no active pointer */ }
                 this.setMoving(true);
                 g.moved = false;
                 if (pointers.size === 1) g.last = local(e);
