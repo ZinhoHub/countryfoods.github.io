@@ -463,6 +463,7 @@ img { display: block; }
 .places-more:hover { text-decoration: underline; }
 .places-loading, .places-empty { color: var(--text-3); font-size: 0.88rem; display: flex; align-items: center; gap: 8px; }
 .places-source { color: var(--text-3); font-size: 0.72rem; margin-top: 10px; }
+.places-regional { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
 .spinner {
     width: 14px; height: 14px; border-radius: 50%;
     border: 2px solid var(--border-strong); border-top-color: var(--accent);

@@ -7,7 +7,7 @@ Live site: https://countryfoods-github-io.vercel.app
 ## How it works
 
 - `index.html`, `styles.css`, `script.js` — the site. No build step.
-- `api/restaurants.js` — restaurant suggestions for a country's cuisine in London, from OpenStreetMap (Overpass API, no key needed). Results are cached in Redis and refreshed weekly; `lib/cuisines.js` maps countries to cuisine search terms. Change `CITY` in that file to target a different city.
+- `api/restaurants.js` — restaurant suggestions for a country's cuisine in London. Served from `data/restaurants.json`, a snapshot built from OpenStreetMap by `node scripts/build-snapshot.js` (one bulk Overpass query, then matched locally; re-run it every month or two and commit). Live Overpass is only used once the snapshot is over 45 days old, with Redis caching. `lib/cuisines.js` maps countries to cuisine terms and regional fallbacks; `lib/overpass.js` has the city bounding box.
 - `api/picks.js` — the group's picked-but-unreviewed countries (Redis set).
 - `map.js` — the interactive world map (renders the jsvectormap `world` path data as one inline SVG; handles the selection roll and zoom). Microstates without a shape in the data are drawn as markers at their capital.
 - `api/reviews.js` — a Vercel serverless function that stores reviews in Redis so everyone sees the same data.

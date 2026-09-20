@@ -494,10 +494,28 @@ function renderPlaces(country, data) {
     if (data.error) {
         return head + `<p class="places-empty">Couldn't reach the restaurant directory just now — try the Google Maps search instead.</p>`;
     }
+
+    const regional = data.regional && data.regional.results && data.regional.results.length ? data.regional : null;
+    const label = t => t.replace(/\b\w/g, ch => ch.toUpperCase());
+    let html = head;
+
     if (results.length === 0) {
-        return head + `<p class="places-empty">Nothing tagged as ${escapeHtml(data.terms?.[0] || country.name)} in London's map data yet — Google Maps is your best bet.</p>`;
+        html += `<p class="places-empty">Nothing tagged as ${escapeHtml(data.terms?.[0] || country.name)} on London's map yet${regional ? '' : ' — Google Maps is your best bet'}.</p>`;
+    } else {
+        html += placesList(country, results);
     }
-    return head + `<div class="places-list">${results.map(p => `
+    if (regional) {
+        html += `<div class="places-regional">
+            <span class="eyebrow">Closest thing nearby: ${escapeHtml(label(regional.terms[0]))}</span>
+            ${placesList(country, regional.results)}
+        </div>`;
+    }
+    const shown = results.length + (regional ? regional.results.length : 0);
+    return html + `<p class="places-source">Listings from OpenStreetMap · ${shown} shown</p>`;
+}
+
+function placesList(country, results) {
+    return `<div class="places-list">${results.map(p => `
         <div class="place">
             <div class="place-main">
                 <div class="place-name">${escapeHtml(p.name)}</div>
@@ -509,8 +527,7 @@ function renderPlaces(country, data) {
                 ${p.website ? `<a class="chip-btn" href="${escapeHtml(p.website)}" target="_blank" rel="noopener">Site</a>` : ''}
                 <button class="chip-btn accent" type="button" onclick="reviewAt('${country.code}', ${JSON.stringify(p.name).replace(/"/g, '&quot;')})">Review here</button>
             </div>
-        </div>`).join('')}</div>
-        <p class="places-source">Listings from OpenStreetMap · ${results.length} shown</p>`;
+        </div>`).join('')}</div>`;
 }
 
 window.reviewAt = function (code, restaurant) {
