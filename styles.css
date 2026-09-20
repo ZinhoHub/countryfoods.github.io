@@ -442,17 +442,14 @@ img { display: block; }
 /* Absolutely positioned so the canvas never dictates the stage's size (it follows the stage, not the other way round). */
 .globe-canvas { position: absolute; inset: 0; display: block; cursor: grab; }
 
-/* Floating pick button over the globe — mobile only; desktop uses the side panel. */
+/* Pick button under the globe — mobile only; desktop uses the side panel. */
 .globe-pick {
     display: none;
-    position: absolute;
-    left: 50%; bottom: 44px;
-    transform: translateX(-50%);
-    z-index: 3;
-    padding: 12px 22px;
-    border-radius: 999px;
-    white-space: nowrap;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), 0 6px 18px rgba(232, 88, 42, 0.28);
+    width: 100%;
+    margin: 8px 0 2px;
+    padding: 14px 22px;
+    border-radius: 14px;
+    font-size: 1.02rem;
 }
 .globe-stage:active .globe-canvas { cursor: grabbing; }
 .globe-card .map-legend { position: static; justify-content: center; padding: 8px 4px 4px; }
@@ -466,7 +463,7 @@ img { display: block; }
     /* Shorter globe so the result card fits on screen underneath it. */
     .globe-stage { aspect-ratio: auto; height: min(72vw, 300px); max-width: none; }
     .globe-card { padding: 8px 8px 4px; }
-    .globe-pick { display: inline-flex; }
+    .globe-pick { display: flex; }
     .explore-side .explore-actions { display: none; }
     .globe-card .map-legend { font-size: 0.68rem; padding: 6px 4px 2px; }
 }
