@@ -77,7 +77,7 @@ const CONTINENT_EMOJI = { Africa: '🌍', Americas: '🌎', Asia: '🌏', Europe
 // If the server storage isn't connected yet we fall back to this browser's localStorage.
 let diary = [];
 let cloudConnected = false;
-let spun = JSON.parse(localStorage.getItem("spunCountries") || "[]");
+let picks = JSON.parse(localStorage.getItem("spunCountries") || "[]");   // shared via api/picks.js when online
 let available = [];          // countries nobody has reviewed and this device hasn't picked yet
 let editingId = null;
 let picking = false;
@@ -160,6 +160,45 @@ async function api(method, path = '', body) {
     return res.status === 204 ? null : res.json();
 }
 
+async function picksApi(method, query = '', body) {
+    const res = await fetch(`/api/picks${query}`, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) throw new Error(`Picks request failed (${res.status})`);
+    return res.json();
+}
+
+function savePicks(list) {
+    picks = list;
+    if (!cloudConnected) localStorage.setItem("spunCountries", JSON.stringify(picks));
+}
+
+async function addPick(name) {
+    if (picks.includes(name)) return;
+    if (cloudConnected) {
+        try { return savePicks(await picksApi('POST', '', { country: name })); } catch (_) { /* fall through */ }
+    }
+    savePicks([...picks, name]);
+}
+
+async function removePick(name) {
+    if (!picks.includes(name)) return;
+    if (cloudConnected) {
+        try { return savePicks(await picksApi('DELETE', `?country=${encodeURIComponent(name)}`)); } catch (_) { /* fall through */ }
+    }
+    savePicks(picks.filter(p => p !== name));
+}
+
+async function clearPicks() {
+    if (cloudConnected) {
+        try { await picksApi('DELETE'); } catch (_) { /* fall through */ }
+    }
+    localStorage.removeItem("spunCountries");
+    picks = [];
+}
+
 function loadLocalDiary() {
     const local = JSON.parse(localStorage.getItem('foodDiary') || "[]");
     local.forEach(e => { if (!e.id) e.id = `local-${Math.random().toString(36).slice(2)}`; });
@@ -174,6 +213,14 @@ async function loadDiary() {
     try {
         const remote = await api('GET');
         cloudConnected = true;
+
+        // Picks are shared too. Any picks this browser made while offline join the group's list.
+        let remotePicks = await picksApi('GET');
+        for (const name of picks.filter(p => !remotePicks.includes(p))) {
+            try { remotePicks = await picksApi('POST', '', { country: name }); } catch (_) { /* keep going */ }
+        }
+        localStorage.removeItem("spunCountries");
+        picks = remotePicks;
 
         // First time online: push anything this browser had saved locally, then stop using local storage.
         const local = loadLocalDiary();
@@ -197,7 +244,7 @@ async function loadDiary() {
 async function refreshFromCloud() {
     if (!cloudConnected) return;
     try {
-        diary = await api('GET');
+        [diary, picks] = await Promise.all([api('GET'), picksApi('GET')]);
         refreshDerived();
     } catch (_) { /* keep showing what we have */ }
 }
@@ -237,7 +284,7 @@ function exploredCodes() {
 // Recompute everything that depends on the diary: available pool, progress bar and map colours.
 function refreshDerived() {
     const explored = exploredCodes();
-    available = countriesFull.filter(c => !explored.has(c.code) && !spun.includes(c.name));
+    available = countriesFull.filter(c => !explored.has(c.code) && !picks.includes(c.name));
     updateProgressBar(explored.size);
     paintMaps(explored);
 }
@@ -257,7 +304,7 @@ function exploreTooltip(code, event) {
     const country = code && byCode[code];
     if (!country || picking) return hideTooltip();
     const explored = exploredCodes();
-    const state = explored.has(code) ? 'Explored' : spun.includes(country.name) ? 'Picked · waiting for a review' : 'Up for grabs';
+    const state = explored.has(code) ? 'Explored' : picks.includes(country.name) ? 'Picked · waiting for a review' : 'Up for grabs';
     tooltip.innerHTML = `<div class="map-tooltip-name">${escapeHtml(country.name)}</div><div class="map-tooltip-sub">${state}</div>`;
     tooltip.classList.remove('hidden');
     positionTooltip(event);
@@ -274,7 +321,7 @@ function statsTooltip(code, event) {
         html += entries.map(e => `
             <div class="map-tooltip-entry">
                 <span><b>${escapeHtml(e.restaurant)}</b><br><span class="map-tooltip-sub">${formatDate(e.date)}</span></span>
-                <span class="score-pill ${grade(e.overall)}">${(e.overall ?? 0).toFixed(1)}</span>
+                ${e.unrated ? '<span class="score-pill muted">Unrated</span>' : `<span class="score-pill ${grade(e.overall)}">${(e.overall ?? 0).toFixed(1)}</span>`}
             </div>`).join('');
     }
     tooltip.innerHTML = html;
@@ -302,7 +349,7 @@ function paintMaps(explored = exploredCodes()) {
     const states = {};
     countriesFull.forEach(c => {
         if (explored.has(c.code)) states[c.code] = 'explored';
-        else if (spun.includes(c.name)) states[c.code] = 'spun';
+        else if (picks.includes(c.name)) states[c.code] = 'spun';
     });
     if (currentPick && !picking) states[currentPick.code] = 'selected';
     exploreMap.setBaseStates(states);
@@ -345,11 +392,8 @@ async function choose(code, { animate }) {
         exploreMap.setState(code, 'selected');
     }
 
-    // Remember the pick so this country leaves the pool until it's reviewed or the picks are reset.
-    if (!spun.includes(country.name)) {
-        spun.push(country.name);
-        localStorage.setItem("spunCountries", JSON.stringify(spun));
-    }
+    // Record the pick for the whole group so the country leaves the pool until it's reviewed.
+    await addPick(country.name);
     currentPick = country;
 
     await exploreMap.zoomTo(code, 1300);
@@ -391,12 +435,12 @@ $('btn-again').onclick = async () => {
 $('btn-reset-view').onclick = clearPick;
 $('btn-review-now').onclick = () => switchTab('review');
 
-// Only forgets which countries this device has picked — the group's reviews are never touched here.
-$('btn-reset').onclick = () => {
-    if (spun.length === 0) return showToast('No picked countries to return');
-    if (confirm(`Return ${spun.length} picked countr${spun.length === 1 ? 'y' : 'ies'} to the pool?`)) {
-        spun = [];
-        localStorage.removeItem("spunCountries");
+// Clears the group's picked-but-unreviewed list — reviews are never touched here.
+$('btn-reset').onclick = async () => {
+    if (picks.length === 0) return showToast('No picked countries to return');
+    const scope = cloudConnected ? ' for everyone' : '';
+    if (confirm(`Return ${picks.length} picked countr${picks.length === 1 ? 'y' : 'ies'} to the pool${scope}?`)) {
+        await clearPicks();
         currentPick = null;
         $('result-card').classList.add('hidden');
         $('explore-actions').classList.remove('hidden');
@@ -544,6 +588,7 @@ $('review-form').onsubmit = async event => {
             notes: $('log-notes').value.trim(),
             date: $('log-date').value || todayISO()
         });
+        await removePick(known.name);
         showToast(wasEditing ? 'Review updated' : `${known.name} explored!`);
         resetForm();
         // The picked country is now explored, so the Explore tab goes back to the world view.
@@ -570,14 +615,18 @@ function buildCard(item, showContinent) {
                         ${showContinent && country ? `<div class="diary-continent">${country.continent}</div>` : ''}
                     </div>
                 </div>
-                <span class="score-pill ${grade(item.overall || 0)}">${(item.overall || 0).toFixed(1)}</span>
+                ${item.unrated
+                    ? '<span class="score-pill muted">Unrated</span>'
+                    : `<span class="score-pill ${grade(item.overall || 0)}">${(item.overall || 0).toFixed(1)}</span>`}
             </div>
             <div class="diary-where"><b>${escapeHtml(item.restaurant)}</b> · ${formatDate(item.date)}</div>
-            <div class="diary-scores">
+            ${item.unrated
+                ? '<div class="diary-scores"><span>No scores yet — tap Edit to rate this meal</span></div>'
+                : `<div class="diary-scores">
                 <span title="Food">🍜 ${(item.food ?? 0).toFixed(1)}</span>
                 <span title="Service">🛎️ ${(item.service ?? 0).toFixed(1)}</span>
                 <span title="Vibe">✨ ${(item.vibe ?? 0).toFixed(1)}</span>
-            </div>
+            </div>`}
             ${item.notes ? `<p class="diary-notes">“${escapeHtml(item.notes)}”</p>` : ''}
             <div class="diary-actions">
                 <button class="chip-btn" type="button" onclick="startEdit('${item.id}')">Edit</button>
@@ -632,12 +681,13 @@ window.updateRank = function (category) {
         btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${category}'`));
     });
 
-    if (diary.length === 0) {
-        div.innerHTML = '<div class="empty">Nothing to rank yet.</div>';
+    const rated = diary.filter(e => !e.unrated);
+    if (rated.length === 0) {
+        div.innerHTML = `<div class="empty">${diary.length ? 'No rated meals yet — add scores from the Logs tab.' : 'Nothing to rank yet.'}</div>`;
         return;
     }
 
-    const sorted = [...diary].sort((a, b) => (b[category] ?? 0) - (a[category] ?? 0));
+    const sorted = rated.sort((a, b) => (b[category] ?? 0) - (a[category] ?? 0));
     div.innerHTML = `
         <div class="rank-header"><span>#</span><span></span><span>Country</span><span style="text-align:right">${category}</span></div>
         ${sorted.map((item, i) => {
@@ -661,18 +711,20 @@ function updateStats() {
     const container = $('continent-averages');
     $('stat-meals').textContent = diary.length;
 
-    if (diary.length === 0) {
-        container.innerHTML = '<div class="empty" style="border:none;padding:24px">Start logging to see continent stats.</div>';
-        $('stat-avg-rating').textContent = '0.0';
+    // Averages only make sense over meals that have actually been scored.
+    const rated = diary.filter(e => !e.unrated);
+    if (rated.length === 0) {
+        container.innerHTML = `<div class="empty" style="border:none;padding:24px">${diary.length ? 'Rate your meals from the Logs tab to unlock stats.' : 'Start logging to see continent stats.'}</div>`;
+        $('stat-avg-rating').textContent = '–';
         $('stat-best-continent').textContent = '–';
         $('stat-most-visited').textContent = '–';
         return;
     }
 
-    $('stat-avg-rating').textContent = (diary.reduce((s, e) => s + (e.overall || 0), 0) / diary.length).toFixed(1);
+    $('stat-avg-rating').textContent = (rated.reduce((s, e) => s + (e.overall || 0), 0) / rated.length).toFixed(1);
 
     const stats = {};
-    diary.forEach(e => {
+    rated.forEach(e => {
         const cont = findCountry(e.country)?.continent || 'Other';
         stats[cont] ||= { total: 0, count: 0 };
         stats[cont].total += e.overall || 0;

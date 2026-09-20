@@ -1,35 +1,15 @@
-// Shared review storage for the Global Eats Spinner.
-// Runs as a Vercel serverless function and stores every review in a Redis hash,
-// so the whole group sees the same list no matter which device they use.
-//
-// Storage is connected through the Vercel dashboard (Storage -> Redis / Upstash),
-// which injects the REST URL + token below as environment variables.
+// Shared review storage. Runs as a Vercel serverless function and stores every review
+// in a Redis hash, so the whole group sees the same list no matter which device they use.
 
 const { randomUUID } = require('crypto');
+const { redis, configured, cleanText, readBody } = require('../lib/redis');
 
-const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const HASH_KEY = 'globalEats:reviews';
-
-async function redis(...command) {
-    const res = await fetch(REDIS_URL, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${REDIS_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(command)
-    });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
-    return data.result;
-}
 
 function clampScore(value) {
     const n = parseFloat(value);
     if (Number.isNaN(n)) return 5;
     return Math.min(10, Math.max(1, Math.round(n * 2) / 2));
-}
-
-function cleanText(value, maxLength) {
-    return String(value ?? '').trim().slice(0, maxLength);
 }
 
 // Only keep the fields we know about, with sane limits, so nobody can stuff junk in the shared list.
@@ -46,21 +26,17 @@ function sanitize(body) {
         country,
         restaurant: cleanText(b.restaurant, 120) || 'Unnamed',
         food, service, vibe, overall,
+        // Meals imported from history without scores stay out of rankings until someone rates them.
+        unrated: Boolean(b.unrated),
         notes: cleanText(b.notes, 1000),
         date
     };
 }
 
-async function readBody(req) {
-    if (req.body && typeof req.body === 'object') return req.body;
-    if (typeof req.body === 'string' && req.body) return JSON.parse(req.body);
-    return {};
-}
-
 module.exports = async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
 
-    if (!REDIS_URL || !REDIS_TOKEN) {
+    if (!configured) {
         return res.status(503).json({ error: 'Shared storage is not configured yet.' });
     }
 
