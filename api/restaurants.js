@@ -47,12 +47,14 @@ async function queryOverpass(query, budgetMs = TOTAL_BUDGET_MS) {
                 body: 'data=' + encodeURIComponent(query),
                 signal: AbortSignal.timeout(Math.min(12000, remaining))
             });
-            if (!res.ok) throw new Error(`${url} -> ${res.status}`);
-            const data = await res.json();
+            const text = await res.text();
+            if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}: ${text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 160)}`);
+            let data;
+            try { data = JSON.parse(text); } catch (_) { throw new Error(`${url} -> non-JSON: ${text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 160)}`); }
             if (!Array.isArray(data.elements)) throw new Error(`${url} -> unexpected response`);
             return data.elements;
         } catch (err) {
-            lastError = err;
+            lastError = new Error(`${lastError ? lastError.message + ' | ' : ''}${err.name === 'TimeoutError' ? url + ' -> timed out' : err.message}`);
         }
     }
     throw lastError || new Error('All Overpass mirrors failed');
@@ -120,6 +122,7 @@ module.exports = async (req, res) => {
         return res.status(200).json({ ...payload, cached: false });
     } catch (err) {
         if (cached) return res.status(200).json({ ...cached, cached: true, stale: true });
-        return res.status(502).json({ error: 'Restaurant lookup is busy right now', country, city: CITY.name, searchUrl });
+        const detail = 'debug' in (req.query || {}) ? err.message : undefined;
+        return res.status(502).json({ error: 'Restaurant lookup is busy right now', country, city: CITY.name, searchUrl, detail });
     }
 };
