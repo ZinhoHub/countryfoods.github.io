@@ -547,7 +547,7 @@ img { display: block; }
 
 /* Up next: picked countries waiting for a meal */
 .up-next { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; width: 100%; min-width: 0; }
-.up-next-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.up-next-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .up-next-head .btn-link { white-space: nowrap; flex: none; }
 .up-next-list {
     display: grid;
