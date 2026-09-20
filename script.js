@@ -287,7 +287,64 @@ function refreshDerived() {
     available = countriesFull.filter(c => !explored.has(c.code) && !picks.includes(c.name));
     updateProgressBar(explored.size);
     paintMaps(explored);
+    renderUpNext(explored);
 }
+
+// --- UP NEXT (picked, not yet reviewed) ---
+function renderUpNext(explored = exploredCodes()) {
+    const wrap = $('up-next');
+    const list = $('up-next-list');
+    const queue = picks.map(findCountry).filter(c => c && !explored.has(c.code));
+    if (queue.length === 0) { wrap.classList.add('hidden'); list.innerHTML = ''; return; }
+    wrap.classList.remove('hidden');
+    list.innerHTML = queue.map(c => `
+        <div class="up-next-card" data-code="${c.code}">
+            <button class="up-next-main" type="button" onclick="focusPick('${c.code}')" aria-label="Show ${escapeHtml(c.name)} on the map">
+                <img class="flag" src="${flagUrl(c.code)}" alt="" loading="lazy">
+                <span class="up-next-text">
+                    <span class="up-next-name">${escapeHtml(c.name)}</span>
+                    <span class="up-next-meta">${CONTINENT_EMOJI[c.continent] || ''} ${c.continent}</span>
+                </span>
+            </button>
+            <div class="up-next-actions">
+                <button class="chip-btn" type="button" onclick="reviewPick('${c.code}')">Review</button>
+                <button class="chip-btn danger" type="button" onclick="unpick('${c.code}')">Unpick</button>
+            </div>
+        </div>`).join('');
+}
+
+window.focusPick = async function (code) {
+    const country = byCode[code];
+    if (!country || picking) return;
+    currentPick = country;
+    refreshDerived();
+    await exploreMap.zoomTo(code, 1000);
+    showResult(country);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+window.reviewPick = function (code) {
+    const country = byCode[code];
+    if (!country) return;
+    resetForm();
+    $('log-country').value = country.name;
+    switchTab('review');
+};
+
+window.unpick = async function (code) {
+    const country = byCode[code];
+    if (!country) return;
+    await removePick(country.name);
+    if (currentPick && currentPick.code === code) {
+        currentPick = null;
+        $('result-card').classList.add('hidden');
+        $('explore-actions').classList.remove('hidden');
+        $('btn-reset-view').classList.add('hidden');
+        exploreMap.resetZoom(700);
+    }
+    refreshDerived();
+    showToast(`${country.name} is back in the pool`);
+};
 
 // --- MAPS ---
 const tooltip = $('map-tooltip');
@@ -439,7 +496,7 @@ $('btn-review-now').onclick = () => switchTab('review');
 $('btn-reset').onclick = async () => {
     if (picks.length === 0) return showToast('No picked countries to return');
     const scope = cloudConnected ? ' for everyone' : '';
-    if (confirm(`Return ${picks.length} picked countr${picks.length === 1 ? 'y' : 'ies'} to the pool${scope}?`)) {
+    if (confirm(`Return all ${picks.length} picked countr${picks.length === 1 ? 'y' : 'ies'} to the pool${scope}?`)) {
         await clearPicks();
         currentPick = null;
         $('result-card').classList.add('hidden');

@@ -455,6 +455,36 @@ img { display: block; }
 .result-actions { grid-area: actions; display: flex; gap: 10px; flex-wrap: wrap; }
 .result-actions .btn { flex: 1; }
 
+/* Up next: picked countries waiting for a meal */
+.up-next { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+.up-next-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.up-next-head .btn-link { white-space: nowrap; flex: none; }
+.up-next-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+}
+.up-next-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 12px 10px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--amber);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+}
+.up-next-main {
+    display: flex; align-items: center; gap: 10px;
+    flex: 1; min-width: 0;
+    background: none; border: none; padding: 4px;
+    text-align: left; cursor: pointer; border-radius: 8px;
+}
+.up-next-main:hover { background: var(--surface-2); }
+.up-next-text { display: flex; flex-direction: column; min-width: 0; }
+.up-next-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.up-next-meta { font-size: 0.75rem; color: var(--text-3); }
+.up-next-actions { display: flex; gap: 6px; flex: none; }
+
 /* =========================================================
    Form
    ========================================================= */
@@ -784,6 +814,8 @@ input[type="range"]::-moz-range-thumb {
     .explore-hint { font-size: 0.8rem; }
 
     .result-card { padding: 16px; gap: 14px; }
+    .up-next-list { grid-template-columns: 1fr; }
+    .toast { bottom: calc(92px + env(safe-area-inset-bottom)); }
     .result-flag { width: 72px; }
 
     .form { padding: 18px; }
