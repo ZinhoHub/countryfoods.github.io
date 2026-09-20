@@ -23,7 +23,7 @@
             <span class="brand-mark" aria-hidden="true">🌍</span>
             <div>
                 <div class="brand-name">Global Eats</div>
-                <div class="brand-sub">195 countries · one table</div>
+                <div class="brand-sub">196 countries · one table</div>
             </div>
         </div>
         <div class="topbar-actions">
@@ -38,7 +38,7 @@
     <section class="progress" aria-label="World exploration progress">
         <div class="progress-row">
             <span class="progress-label">World explored</span>
-            <span id="progress-percent" class="progress-count">0 / 195</span>
+            <span id="progress-percent" class="progress-count">0 / 196</span>
         </div>
         <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
     </section>
@@ -54,15 +54,18 @@
     <main class="content">
 
         <!-- EXPLORE -->
-        <section id="explore-section" class="panel">
-            <div class="map-card">
-                <div id="explore-map" class="map-stage" aria-label="World map country selector"></div>
-                <div class="map-legend" aria-hidden="true">
-                    <span><i class="dot dot-explored"></i>Explored</span>
-                    <span><i class="dot dot-spun"></i>Picked, not reviewed</span>
-                    <span><i class="dot dot-available"></i>Up for grabs</span>
+        <section id="explore-section" class="panel explore-layout">
+            <div class="explore-main">
+                <div class="map-card globe-card">
+                    <div id="explore-map" class="globe-stage" aria-label="Globe country selector"></div>
+                    <div class="map-legend" aria-hidden="true">
+                        <span><i class="dot dot-explored"></i>Explored</span>
+                        <span><i class="dot dot-spun"></i>Picked, not reviewed</span>
+                        <span><i class="dot dot-available"></i>Up for grabs</span>
+                    </div>
                 </div>
             </div>
+            <div class="explore-side">
 
             <div id="result-card" class="result-card hidden" aria-live="polite">
                 <img id="result-flag" class="result-flag" src="" alt="">
@@ -78,10 +81,14 @@
                 <div id="result-places" class="places"></div>
             </div>
             <div id="explore-actions" class="explore-actions">
+                <div class="explore-intro">
+                    <h2 class="panel-title">Where next?</h2>
+                    <p class="card-sub">Spin for a random country the group hasn't eaten yet.</p>
+                </div>
                 <button id="btn-pick" class="btn btn-primary btn-lg" type="button">
                     <span class="btn-icon">🎲</span> Pick a country
                 </button>
-                <p class="explore-hint">Or tap any country on the map to choose it yourself.</p>
+                <p class="explore-hint">Or spin the globe and tap a country to choose it yourself.</p>
             </div>
 
             <div id="up-next" class="up-next hidden">
@@ -94,7 +101,7 @@
                 </div>
                 <div id="up-next-list" class="up-next-list"></div>
             </div>
-
+            </div>
         </section>
 
         <!-- REVIEW -->
@@ -222,7 +229,11 @@
     <div id="map-tooltip" class="map-tooltip hidden" role="tooltip"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+    <script src="vendor/d3-array.min.js"></script>
+    <script src="vendor/d3-geo.min.js"></script>
+    <script src="vendor/topojson-client.min.js"></script>
     <script src="map.js"></script>
+    <script src="globe.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

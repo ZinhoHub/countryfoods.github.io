@@ -12,7 +12,7 @@ const countriesFull = [
     {name: "Cameroon", code: "CM", continent: "Africa"}, {name: "Canada", code: "CA", continent: "Americas"}, {name: "Central African Republic", code: "CF", continent: "Africa"},
     {name: "Chad", code: "TD", continent: "Africa"}, {name: "Chile", code: "CL", continent: "Americas"}, {name: "China", code: "CN", continent: "Asia"},
     {name: "Colombia", code: "CO", continent: "Americas"}, {name: "Comoros", code: "KM", continent: "Africa"}, {name: "Congo", code: "CG", continent: "Africa"},
-    {name: "DR Congo", code: "CD", continent: "Africa"}, {name: "Costa Rica", code: "CR", continent: "Americas"}, {name: "Croatia", code: "HR", continent: "Europe"},
+    {name: "DR Congo", code: "CD", continent: "Africa"}, {name: "Côte d'Ivoire", code: "CI", continent: "Africa"}, {name: "Costa Rica", code: "CR", continent: "Americas"}, {name: "Croatia", code: "HR", continent: "Europe"},
     {name: "Cuba", code: "CU", continent: "Americas"}, {name: "Cyprus", code: "CY", continent: "Asia"}, {name: "Czechia", code: "CZ", continent: "Europe"},
     {name: "Denmark", code: "DK", continent: "Europe"}, {name: "Djibouti", code: "DJ", continent: "Africa"}, {name: "Dominica", code: "DM", continent: "Americas"},
     {name: "Dominican Republic", code: "DO", continent: "Americas"}, {name: "Ecuador", code: "EC", continent: "Americas"}, {name: "Egypt", code: "EG", continent: "Africa"},
@@ -385,7 +385,7 @@ function statsTooltip(code, event) {
     positionTooltip(event);
 }
 
-const exploreMap = new WorldMap($('explore-map'), {
+const exploreMap = new Globe($('explore-map'), {
     onHover: exploreTooltip,
     onReset: () => { if (currentPick && !picking) clearPick(); },
     onSelect: code => {
@@ -443,9 +443,9 @@ async function choose(code, { animate }) {
     if (exploreMap.isZoomed()) await exploreMap.resetZoom(500);
 
     if (animate) {
-        // The roll: countries light up across the map, slowing down until it lands on the winner.
+        // The roll: the globe spins, countries lighting up as they pass, slowing onto the winner.
         const pool = available.map(c => c.code);
-        await exploreMap.roll(pool, code, { duration: 3200 });
+        await exploreMap.roll(pool, code, { duration: 3600 });
         await new Promise(r => setTimeout(r, 250));
     } else {
         exploreMap.setState(code, 'selected');

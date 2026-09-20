@@ -1,6 +1,6 @@
 # Global Eats Spinner
 
-Pick a country on the world map, go eat its food, then log a review. The whole group shares one list of reviews, one map and one leaderboard.
+Spin the globe to pick a country, go eat its food, then log a review. The whole group shares one list of reviews, one map and one leaderboard.
 
 Live site: https://countryfoods-github-io.vercel.app
 
@@ -9,7 +9,8 @@ Live site: https://countryfoods-github-io.vercel.app
 - `index.html`, `styles.css`, `script.js` — the site. No build step.
 - `api/restaurants.js` — restaurant suggestions for a country's cuisine in London. Served from `data/restaurants.json`, a snapshot built from OpenStreetMap by `node scripts/build-snapshot.js` (one bulk Overpass query, then matched locally; re-run it every month or two and commit). Live Overpass is only used once the snapshot is over 45 days old, with Redis caching. `lib/cuisines.js` maps countries to cuisine terms and regional fallbacks; `lib/overpass.js` has the city bounding box.
 - `api/picks.js` — the group's picked-but-unreviewed countries (Redis set).
-- `map.js` — the interactive world map (renders the jsvectormap `world` path data as one inline SVG; handles the selection roll and zoom). Microstates without a shape in the data are drawn as markers at their capital.
+- `globe.js` — the Explore globe: an orthographic projection drawn on a canvas with d3-geo (vendored in `vendor/`), using Natural Earth 110m shapes from `data/countries-110m.json` (`data/iso-numeric.json` maps its numeric ids to ISO codes). Handles the spin/ignite roll, zoom-to-country, drag/pinch/wheel and tap selection. Microstates without a shape are markers at their capital.
+- `map.js` — the flat world map used on the Stats tab (inline SVG from the jsvectormap `world` path data), with zoom/pan.
 - `api/reviews.js` — a Vercel serverless function that stores reviews in Redis so everyone sees the same data.
 - Pushing to `main` redeploys the site on Vercel automatically.
 

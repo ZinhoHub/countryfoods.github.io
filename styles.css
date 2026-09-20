@@ -422,12 +422,42 @@ img { display: block; }
 }
 .map-tooltip-entry b { font-weight: 600; }
 
+/* Globe */
+.explore-layout { gap: 18px; }
+.explore-main, .explore-side { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.globe-card { padding: 12px 12px 6px; --map-land: #cfd8e3; --map-land-hover: #b9c5d4; }
+[data-theme="dark"] .globe-card { --map-land: #353e52; --map-land-hover: #47526a; --map-water: #10141d; }
+.globe-stage {
+    position: relative;
+    width: 100%;
+    max-width: 620px;
+    aspect-ratio: 1 / 1;
+    margin: 0 auto;
+    touch-action: pan-y;      /* vertical swipes still scroll the page at world view */
+}
+.globe-stage.is-zoomed { touch-action: none; }
+.globe-stage.is-rolling { pointer-events: none; }
+.globe-canvas { display: block; cursor: grab; }
+.globe-stage:active .globe-canvas { cursor: grabbing; }
+.globe-card .map-legend { position: static; justify-content: center; padding: 8px 4px 4px; }
+
+@media (min-width: 900px) {
+    .explore-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); align-items: start; }
+    .explore-actions { padding-top: 12px; }
+    .up-next-list { grid-template-columns: 1fr; }
+}
+
 /* Explore actions & result */
 .explore-actions {
     display: flex; flex-direction: column; align-items: center; gap: 10px;
     padding-top: 4px;
 }
 .explore-hint { color: var(--text-3); font-size: 0.85rem; text-align: center; }
+.explore-intro { text-align: center; margin-bottom: 6px; }
+@media (min-width: 900px) {
+    .explore-actions { align-items: stretch; text-align: left; padding: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+    .explore-intro, .explore-hint { text-align: left; }
+}
 
 .result-card {
     display: grid;
