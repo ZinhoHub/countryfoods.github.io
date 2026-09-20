@@ -1,16 +1,17 @@
 # Global Eats Spinner
 
-Spin the wheel, get a country, go eat its food, then log a review. The whole group shares one list of reviews, one map and one leaderboard.
+Pick a country on the world map, go eat its food, then log a review. The whole group shares one list of reviews, one map and one leaderboard.
 
 Live site: https://countryfoods-github-io.vercel.app
 
 ## How it works
 
 - `index.html`, `styles.css`, `script.js` — the site. No build step.
+- `map.js` — the interactive world map (renders the jsvectormap `world` path data as one inline SVG; handles the selection roll and zoom). Microstates without a shape in the data are drawn as markers at their capital.
 - `api/reviews.js` — a Vercel serverless function that stores reviews in Redis so everyone sees the same data.
 - Pushing to `main` redeploys the site on Vercel automatically.
 
-Reviews are shared. Only the list of countries *spun but not yet reviewed* is per-device (that's what "Reset Spun Countries" clears — it never touches reviews).
+Reviews are shared. Only the list of countries *picked but not yet reviewed* is per-device (that's what "Return picked countries to the pool" clears — it never touches reviews).
 
 ## One-time setup: connect shared storage
 

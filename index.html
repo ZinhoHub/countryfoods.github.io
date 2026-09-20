@@ -1,166 +1,218 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Eats Spinner</title>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap/dist/css/jsvectormap.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/jsvectormap"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f1117">
+    <title>Global Eats</title>
+    <meta name="description" content="A shared food challenge: pick a country on the map, eat its cuisine, rate it together.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- world.js registers its path data through jsVectorMap.addMap; we only need the data, not the library. -->
+    <script>window.MAP_DATA = {}; window.jsVectorMap = { addMap: (name, data) => { window.MAP_DATA[name] = data; } };</script>
     <script src="https://cdn.jsdelivr.net/npm/jsvectormap/dist/maps/world.js"></script>
-    
+
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header class="app-header">
-        <h1>Country Spinner</h1>
-        <div class="theme-switch-container">
-            <label class="theme-toggle">
-                <input type="checkbox" id="theme-toggle">
-                <span class="slider">
-                    <span class="knob">
-                        <span class="icon sun">☀️</span>
-                        <span class="icon moon">🌙</span>
-                    </span>
-                </span>
-            </label>
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">🌍</span>
+            <div>
+                <div class="brand-name">Global Eats</div>
+                <div class="brand-sub">195 countries · one table</div>
+            </div>
+        </div>
+        <div class="topbar-actions">
+            <span id="sync-status" class="sync-status" title="">Connecting…</span>
+            <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch theme">
+                <span class="theme-icon theme-icon-light" aria-hidden="true">☀️</span>
+                <span class="theme-icon theme-icon-dark" aria-hidden="true">🌙</span>
+            </button>
         </div>
     </header>
 
-    <div id="sync-status" class="sync-status" title="">Connecting…</div>
-
-    <div class="progress-container">
-        <div class="progress-info">
-            <span>World Exploration</span>
-            <span id="progress-percent">0/195</span>
+    <section class="progress" aria-label="World exploration progress">
+        <div class="progress-row">
+            <span class="progress-label">World explored</span>
+            <span id="progress-percent" class="progress-count">0 / 195</span>
         </div>
-        <div class="progress-bar-bg">
-            <div id="progress-fill" class="progress-fill"></div>
-        </div>
-    </div>
+        <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
+    </section>
 
-    <nav class="tab-nav">
-        <button id="tab-wheel" class="tab-btn active">🎯 Wheel</button>
-        <button id="tab-diary" class="tab-btn">🍽️ Add Review</button>
-        <button id="tab-history" class="tab-btn">📖 Logs</button>
-        <button id="tab-rankings" class="tab-btn">🏆 Rankings</button>
-        <button id="tab-stats" class="tab-btn">📊 Stats</button>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+        <button id="tab-explore" class="tab active" role="tab" aria-selected="true"><span class="tab-icon">🗺️</span><span class="tab-label">Explore</span></button>
+        <button id="tab-review" class="tab" role="tab" aria-selected="false"><span class="tab-icon">✍️</span><span class="tab-label">Review</span></button>
+        <button id="tab-logs" class="tab" role="tab" aria-selected="false"><span class="tab-icon">📖</span><span class="tab-label">Logs</span></button>
+        <button id="tab-rankings" class="tab" role="tab" aria-selected="false"><span class="tab-icon">🏆</span><span class="tab-label">Rankings</span></button>
+        <button id="tab-stats" class="tab" role="tab" aria-selected="false"><span class="tab-icon">📊</span><span class="tab-label">Stats</span></button>
     </nav>
 
-    <main id="wheel-section" class="content-section">
-        <div class="wheel-wrapper">
-            <div class="pointer-fixed"></div>
-            <div class="wheel-container">
-                <canvas id="wheel" width="520" height="520"></canvas>
-            </div>
-            <button id="btn-spin" class="spin-button">SPIN</button>
-        </div>
-        <button id="btn-reset" title="Puts countries you spun but haven't reviewed back on the wheel">Reset Spun Countries</button>
-    </main>
+    <main class="content">
 
-    <main id="history-section" class="content-section hidden">
-        
-        <div class="rank-selector">
-            <button class="rank-opt active" id="sort-recent" onclick="renderDiary('recent')">Newest</button>
-            <button class="rank-opt" id="sort-alpha" onclick="renderDiary('alpha')">A-Z</button>
-            <button class="rank-opt" id="sort-continent" onclick="renderDiary('continent')">Continent</button>
-        </div>
-
-        <div id="diary-display" class="diary-grid"></div>
-    </main>
-
-    <main id="diary-section" class="content-section hidden">
-        <div class="vertical-form">
-            <h2 id="form-title" class="form-title">Add a Review</h2>
-            <label for="log-country">Which Country?</label>
-            <input type="text" id="log-country" list="country-options" placeholder="Search countries...">
-            <datalist id="country-options"></datalist>
-
-            <label for="log-date">Date Visited</label>
-            <input type="date" id="log-date">
-
-            <label for="log-restaurant">Restaurant Name</label>
-            <input type="text" id="log-restaurant" placeholder="e.g. Din Tai Fung">
-
-            <div class="rating-grid">
-                <div class="rating-pod">
-                    <div class="pod-label">Food</div>
-                    <div class="pod-value"><span id="val-food">5.0</span></div>
-                    <input type="range" id="rate-food" min="1" max="10" step="0.5" value="5">
-                </div>
-                <div class="rating-pod">
-                    <div class="pod-label">Service</div>
-                    <div class="pod-value"><span id="val-service">5.0</span></div>
-                    <input type="range" id="rate-service" min="1" max="10" step="0.5" value="5">
-                </div>
-                <div class="rating-pod">
-                    <div class="pod-label">Vibe</div>
-                    <div class="pod-value"><span id="val-vibe">5.0</span></div>
-                    <input type="range" id="rate-vibe" min="1" max="10" step="0.5" value="5">
+        <!-- EXPLORE -->
+        <section id="explore-section" class="panel">
+            <div class="map-card">
+                <div id="explore-map" class="map-stage" aria-label="World map country selector"></div>
+                <button id="btn-reset-view" class="icon-btn map-reset hidden" type="button" aria-label="Show whole world">⤢</button>
+                <div class="map-legend" aria-hidden="true">
+                    <span><i class="dot dot-explored"></i>Explored</span>
+                    <span><i class="dot dot-spun"></i>Picked, not reviewed</span>
+                    <span><i class="dot dot-available"></i>Up for grabs</span>
                 </div>
             </div>
 
-            <div class="overall-score-display" id="overall-box">
-                Overall: <span id="overall-score">5.0</span> / 10
+            <div id="result-card" class="result-card hidden" aria-live="polite">
+                <img id="result-flag" class="result-flag" src="" alt="">
+                <div class="result-body">
+                    <div class="eyebrow">Next stop</div>
+                    <h2 id="result-name" class="result-name">Country</h2>
+                    <div id="result-meta" class="result-meta"></div>
+                </div>
+                <div class="result-actions">
+                    <button id="btn-review-now" class="btn btn-primary" type="button">Review it</button>
+                    <button id="btn-again" class="btn btn-secondary" type="button">Pick again</button>
+                </div>
+            </div>
+            <div id="explore-actions" class="explore-actions">
+                <button id="btn-pick" class="btn btn-primary btn-lg" type="button">
+                    <span class="btn-icon">🎲</span> Pick a country
+                </button>
+                <p class="explore-hint">Or tap any country on the map to choose it yourself.</p>
+                <button id="btn-reset" class="btn btn-link" type="button">Return picked countries to the pool</button>
             </div>
 
-            <label for="log-notes">Notes</label>
-            <textarea id="log-notes" rows="3" placeholder="What was the best dish?"></textarea>
+        </section>
 
-            <button id="btn-save-log" class="save-btn">Save Review</button>
-            <button id="btn-cancel-edit" class="cancel-btn hidden">Cancel</button>
-        </div>
+        <!-- REVIEW -->
+        <section id="review-section" class="panel hidden">
+            <form id="review-form" class="card form" autocomplete="off" novalidate>
+                <div class="form-head">
+                    <h2 id="form-title" class="card-title">Add a review</h2>
+                    <p class="card-sub">Rate the meal together — scores are shared with the whole group.</p>
+                </div>
+
+                <div class="field">
+                    <label for="log-country">Country</label>
+                    <input type="text" id="log-country" list="country-options" placeholder="Start typing…" required>
+                    <datalist id="country-options"></datalist>
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label for="log-date">Date visited</label>
+                        <input type="date" id="log-date">
+                    </div>
+                    <div class="field">
+                        <label for="log-restaurant">Restaurant</label>
+                        <input type="text" id="log-restaurant" placeholder="e.g. Din Tai Fung">
+                    </div>
+                </div>
+
+                <div class="ratings">
+                    <div class="rating">
+                        <div class="rating-head"><span>Food</span><output id="val-food">5.0</output></div>
+                        <input type="range" id="rate-food" min="1" max="10" step="0.5" value="5" aria-label="Food score">
+                    </div>
+                    <div class="rating">
+                        <div class="rating-head"><span>Service</span><output id="val-service">5.0</output></div>
+                        <input type="range" id="rate-service" min="1" max="10" step="0.5" value="5" aria-label="Service score">
+                    </div>
+                    <div class="rating">
+                        <div class="rating-head"><span>Vibe</span><output id="val-vibe">5.0</output></div>
+                        <input type="range" id="rate-vibe" min="1" max="10" step="0.5" value="5" aria-label="Vibe score">
+                    </div>
+                </div>
+
+                <div id="overall-box" class="overall">
+                    <span class="overall-label">Overall score</span>
+                    <span class="overall-value"><span id="overall-score">5.0</span><small>/10</small></span>
+                    <span class="overall-note">Food 60% · Service 30% · Vibe 10%</span>
+                </div>
+
+                <div class="field">
+                    <label for="log-notes">Notes</label>
+                    <textarea id="log-notes" rows="3" placeholder="Best dish? Anything to remember?"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button id="btn-save-log" class="btn btn-primary btn-lg" type="submit">Save review</button>
+                    <button id="btn-cancel-edit" class="btn btn-secondary hidden" type="button">Cancel</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- LOGS -->
+        <section id="logs-section" class="panel hidden">
+            <div class="panel-head">
+                <h2 class="panel-title">Logs</h2>
+                <div class="segmented" role="group" aria-label="Sort reviews">
+                    <button class="seg active" id="sort-recent" type="button" onclick="renderDiary('recent')">Newest</button>
+                    <button class="seg" id="sort-alpha" type="button" onclick="renderDiary('alpha')">A–Z</button>
+                    <button class="seg" id="sort-continent" type="button" onclick="renderDiary('continent')">Continent</button>
+                </div>
+            </div>
+            <div id="diary-display" class="card-grid"></div>
+        </section>
+
+        <!-- RANKINGS -->
+        <section id="rankings-section" class="panel hidden">
+            <div class="panel-head">
+                <h2 class="panel-title">Rankings</h2>
+                <div class="segmented" role="group" aria-label="Rank by">
+                    <button class="seg active" type="button" onclick="updateRank('overall')">Overall</button>
+                    <button class="seg" type="button" onclick="updateRank('food')">Food</button>
+                    <button class="seg" type="button" onclick="updateRank('service')">Service</button>
+                    <button class="seg" type="button" onclick="updateRank('vibe')">Vibe</button>
+                </div>
+            </div>
+            <div id="rankings-list" class="rank-list"></div>
+        </section>
+
+        <!-- STATS -->
+        <section id="stats-section" class="panel hidden">
+            <div class="panel-head">
+                <h2 class="panel-title">Stats</h2>
+            </div>
+
+            <div class="stats-grid">
+                <div class="card stat">
+                    <div class="stat-label">Average score</div>
+                    <div id="stat-avg-rating" class="stat-value">0.0</div>
+                    <div class="stat-sub">across every meal</div>
+                </div>
+                <div class="card stat">
+                    <div class="stat-label">Meals logged</div>
+                    <div id="stat-meals" class="stat-value">0</div>
+                    <div class="stat-sub">reviews so far</div>
+                </div>
+                <div class="card stat">
+                    <div class="stat-label">Best continent</div>
+                    <div id="stat-best-continent" class="stat-value stat-value-sm">–</div>
+                    <div class="stat-sub">highest average</div>
+                </div>
+                <div class="card stat">
+                    <div class="stat-label">Most visited</div>
+                    <div id="stat-most-visited" class="stat-value stat-value-sm">–</div>
+                    <div class="stat-sub">favourite region</div>
+                </div>
+            </div>
+
+            <div class="map-card map-card-compact">
+                <div id="stats-map" class="map-stage" aria-label="Map of explored countries"></div>
+            </div>
+
+            <div id="continent-averages" class="card continent-list"></div>
+        </section>
     </main>
 
-    <main id="rankings-section" class="content-section hidden">
-        <div class="rank-selector">
-            <button class="rank-opt active" onclick="updateRank('overall')">Overall</button>
-            <button class="rank-opt" onclick="updateRank('food')">Food</button>
-            <button class="rank-opt" onclick="updateRank('service')">Service</button>
-            <button class="rank-opt" onclick="updateRank('vibe')">Vibe</button>
-        </div>
-        <div id="rankings-list" class="diary-grid"></div>
-    </main>
-
-    <main id="stats-section" class="content-section hidden">
-        <h2 style="text-align: center; margin-bottom: 20px;">Palate Insights</h2>
-        
-        <div id="map" style="width: 90%; height: 350px; margin: 0 auto 20px auto; border-radius: 20px;"></div>
-
-        <div class="stats-grid">
-            <div class="stat-card" style="grid-column: span 2;">
-                <h3>Global Avg</h3>
-                <div id="stat-avg-rating" class="stat-value">0.0</div>
-                <small>Score Across All Meals</small>
-            </div>
-            <div class="stat-card">
-                <h3>Best Continent</h3>
-                <div id="stat-best-continent" class="stat-value">-</div>
-                <small>Highest Rating Average</small>
-            </div>
-            <div class="stat-card">
-                <h3>Most Visited</h3>
-                <div id="stat-most-visited" class="stat-value">-</div>
-                <small>Favorite Region</small>
-            </div>
-        </div>
-
-        <div id="continent-averages" class="continent-list-container"></div>
-    </main>
-
-    <div id="popup" class="popup hidden">
-        <div class="popup-content">
-            <h2 id="popupCountry">Country</h2>
-            <img id="popupFlag" src="" alt="Flag">
-            <div class="popup-actions">
-                <button id="btn-review-now">Review it now</button>
-                <button id="btn-close">Great!</button>
-            </div>
-        </div>
-    </div>
-
+    <div id="map-tooltip" class="map-tooltip hidden" role="tooltip"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+    <script src="map.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
