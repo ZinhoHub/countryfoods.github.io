@@ -319,7 +319,7 @@ img { display: block; }
     width: 100%;
     aspect-ratio: 900 / 441;
     min-height: 210px;
-    touch-action: manipulation;
+    position: relative;
 }
 .map-card-compact .map-stage { min-height: 180px; }
 
@@ -376,11 +376,15 @@ img { display: block; }
     stroke-width: 2.5;
 }
 
-.map-reset {
+.map-controls {
     position: absolute; top: 12px; right: 12px;
     z-index: 2;
-    font-size: 18px;
+    display: flex; flex-direction: column; gap: 6px;
 }
+.map-ctl { width: 36px; height: 36px; font-size: 18px; font-weight: 600; line-height: 1; }
+.map-stage { touch-action: pan-y; cursor: grab; }
+.map-stage.is-zoomed { touch-action: none; }
+.map-stage:active { cursor: grabbing; }
 
 .map-legend {
     position: absolute; left: 14px; bottom: 12px;

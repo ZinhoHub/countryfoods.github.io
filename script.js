@@ -339,8 +339,7 @@ window.unpick = async function (code) {
         currentPick = null;
         $('result-card').classList.add('hidden');
         $('explore-actions').classList.remove('hidden');
-        $('btn-reset-view').classList.add('hidden');
-        exploreMap.resetZoom(700);
+            exploreMap.resetZoom(700);
     }
     refreshDerived();
     showToast(`${country.name} is back in the pool`);
@@ -388,6 +387,7 @@ function statsTooltip(code, event) {
 
 const exploreMap = new WorldMap($('explore-map'), {
     onHover: exploreTooltip,
+    onReset: () => { if (currentPick && !picking) clearPick(); },
     onSelect: code => {
         // Tapping a country picks it directly, as long as it's still in the pool.
         if (picking || !byCode[code]) return;
@@ -400,7 +400,10 @@ const exploreMap = new WorldMap($('explore-map'), {
     }
 });
 
-const statsMap = new WorldMap($('stats-map'), { onHover: statsTooltip });
+const statsMap = new WorldMap($('stats-map'), {
+    onHover: statsTooltip,
+    onSelect: code => { if (byCode[code]) statsMap.zoomTo(code, 900); }
+});
 
 function paintMaps(explored = exploredCodes()) {
     const states = {};
@@ -436,7 +439,6 @@ async function choose(code, { animate }) {
     hideTooltip();
     $('btn-pick').disabled = true;
     $('result-card').classList.add('hidden');
-    $('btn-reset-view').classList.add('hidden');
 
     if (exploreMap.isZoomed()) await exploreMap.resetZoom(500);
 
@@ -547,7 +549,6 @@ function showResult(country) {
     $('result-meta').textContent = `${CONTINENT_EMOJI[country.continent] || ''} ${country.continent} · ${explored} of ${countriesFull.length} explored so far`;
     $('result-card').classList.remove('hidden');
     $('explore-actions').classList.add('hidden');
-    $('btn-reset-view').classList.remove('hidden');
     $('btn-pick').disabled = false;
     $('log-country').value = country.name;
     loadRestaurants(country);
@@ -557,20 +558,17 @@ async function clearPick() {
     currentPick = null;
     $('result-card').classList.add('hidden');
     $('explore-actions').classList.remove('hidden');
-    $('btn-reset-view').classList.add('hidden');
     refreshDerived();
-    await exploreMap.resetZoom(900);
+    if (exploreMap.isZoomed()) await exploreMap.resetZoom(900);
 }
 
 $('btn-pick').onclick = pickRandom;
 $('btn-again').onclick = async () => {
     currentPick = null;
     $('result-card').classList.add('hidden');
-    $('btn-reset-view').classList.add('hidden');
     refreshDerived();
     pickRandom();
 };
-$('btn-reset-view').onclick = clearPick;
 $('btn-review-now').onclick = () => switchTab('review');
 
 // Clears the group's picked-but-unreviewed list — reviews are never touched here.
@@ -582,8 +580,7 @@ $('btn-reset').onclick = async () => {
         currentPick = null;
         $('result-card').classList.add('hidden');
         $('explore-actions').classList.remove('hidden');
-        $('btn-reset-view').classList.add('hidden');
-        refreshDerived();
+            refreshDerived();
         exploreMap.resetZoom(700);
         showToast('Pool reset');
     }

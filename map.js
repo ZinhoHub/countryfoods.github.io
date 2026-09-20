@@ -70,6 +70,7 @@
         constructor(container, opts = {}) {
             this.container = container;
             this.opts = opts;
+            this.gesture = { dragging: false, moved: false };
             this.elements = {};
             this.boundsCache = {};
             this.view = { x: 0, y: 0, w: BASE_W, h: BASE_H };
@@ -114,6 +115,7 @@
 
             // A single delegated listener keeps things cheap on touch devices.
             const hover = e => {
+                if (this.gesture.dragging) return;
                 const code = e.target.dataset ? e.target.dataset.code : null;
                 if (this.opts.onHover) this.opts.onHover(code || null, e);
             };
@@ -121,12 +123,141 @@
             svg.addEventListener('pointerdown', hover);
             svg.addEventListener('pointerleave', e => this.opts.onHover && this.opts.onHover(null, e));
             svg.addEventListener('click', e => {
+                if (this.gesture.moved) return;   // a drag that ended on a country isn't a tap
                 const code = e.target.dataset ? e.target.dataset.code : null;
                 if (code && this.opts.onSelect) this.opts.onSelect(code);
             });
 
             this.svg = svg;
             this.container.appendChild(svg);
+            this.setupGestures();
+            this.setupControls();
+        }
+
+        // --- Pan, pinch and wheel zoom ---
+        setupGestures() {
+            const svg = this.svg;
+            const pointers = new Map();
+            const g = this.gesture = { dragging: false, moved: false, last: null, pinchDist: 0 };
+
+            const unitsPerPixel = () => this.view.w / svg.clientWidth;
+            const midpoint = () => {
+                const pts = [...pointers.values()];
+                return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+            };
+            const distance = () => {
+                const [a, b] = [...pointers.values()];
+                return Math.hypot(a.x - b.x, a.y - b.y);
+            };
+
+            svg.addEventListener('pointerdown', e => {
+                if (this.rollTimer) return;
+                pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                svg.setPointerCapture(e.pointerId);
+                g.moved = false;
+                if (pointers.size === 1) g.last = { x: e.clientX, y: e.clientY };
+                if (pointers.size === 2) { g.pinchDist = distance(); g.last = midpoint(); }
+            });
+
+            svg.addEventListener('pointermove', e => {
+                if (!pointers.has(e.pointerId)) return;
+                pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                const upp = unitsPerPixel();
+
+                if (pointers.size === 2) {
+                    const d = distance(), mid = midpoint();
+                    if (g.pinchDist) this.zoomBy(d / g.pinchDist, this.pointToUnits(mid.x, mid.y));
+                    this.panBy((g.last.x - mid.x) * upp, (g.last.y - mid.y) * upp);
+                    g.pinchDist = d; g.last = mid; g.moved = true; g.dragging = true;
+                } else if (pointers.size === 1 && g.last) {
+                    const dx = e.clientX - g.last.x, dy = e.clientY - g.last.y;
+                    if (!g.moved && Math.hypot(dx, dy) < 6) return;   // tap tolerance
+                    // Only pan when zoomed in; at world view a drag would just fight the page scroll.
+                    if (!this.isZoomed()) return;
+                    g.moved = true; g.dragging = true;
+                    this.panBy(-dx * upp, -dy * upp);
+                    g.last = { x: e.clientX, y: e.clientY };
+                }
+            });
+
+            const end = e => {
+                pointers.delete(e.pointerId);
+                if (pointers.size === 0) { g.dragging = false; g.last = null; g.pinchDist = 0; }
+                else if (pointers.size === 1) { const p = [...pointers.values()][0]; g.last = { x: p.x, y: p.y }; g.pinchDist = 0; }
+                // Keep `moved` until the click event that follows pointerup has been seen.
+                setTimeout(() => { if (pointers.size === 0) g.moved = false; }, 0);
+            };
+            svg.addEventListener('pointerup', end);
+            svg.addEventListener('pointercancel', end);
+
+            svg.addEventListener('wheel', e => {
+                if (this.rollTimer) return;
+                e.preventDefault();
+                this.zoomBy(Math.exp(-e.deltaY * 0.0015), this.pointToUnits(e.clientX, e.clientY));
+            }, { passive: false });
+        }
+
+        setupControls() {
+            const wrap = document.createElement('div');
+            wrap.className = 'map-controls';
+            const make = (label, title, onClick) => {
+                const b = document.createElement('button');
+                b.type = 'button'; b.className = 'icon-btn map-ctl'; b.textContent = label; b.title = title; b.setAttribute('aria-label', title);
+                b.onclick = onClick;
+                wrap.appendChild(b);
+                return b;
+            };
+            make('+', 'Zoom in', () => this.zoomBy(1.6));
+            make('−', 'Zoom out', () => this.zoomBy(1 / 1.6));
+            this.resetButton = make('⤢', 'Show whole world', () => { this.resetZoom(700); if (this.opts.onReset) this.opts.onReset(); });
+            this.container.appendChild(wrap);
+            this.updateControls();
+        }
+
+        updateControls() {
+            const zoomed = this.isZoomed();
+            if (this.resetButton) this.resetButton.classList.toggle('hidden', !zoomed);
+            // At world view the page keeps vertical scrolling; once zoomed the map owns the touch.
+            this.container.classList.toggle('is-zoomed', zoomed);
+        }
+
+        // Screen pixel -> map units for the current view.
+        pointToUnits(clientX, clientY) {
+            const r = this.svg.getBoundingClientRect();
+            // The viewBox is letterboxed with "meet": work out the rendered scale and offset.
+            const scale = Math.min(r.width / this.view.w, r.height / this.view.h);
+            const ox = (r.width - this.view.w * scale) / 2, oy = (r.height - this.view.h * scale) / 2;
+            return { x: this.view.x + (clientX - r.left - ox) / scale, y: this.view.y + (clientY - r.top - oy) / scale };
+        }
+
+        clampView(v) {
+            const w = Math.min(BASE_W, Math.max(BASE_W / 14, v.w));
+            const h = w / ASPECT;
+            const x = Math.min(Math.max(v.x, -w * 0.25), BASE_W - w * 0.75);
+            const y = Math.min(Math.max(v.y, -h * 0.25), BASE_H - h * 0.75);
+            return { x, y, w, h };
+        }
+
+        setView(v) {
+            this.cancelAnimation();
+            this.view = this.clampView(v);
+            this.svg.setAttribute('viewBox', `${this.view.x} ${this.view.y} ${this.view.w} ${this.view.h}`);
+            this.svg.style.setProperty('--zoom', (BASE_W / this.view.w).toFixed(3));
+            this.updateControls();
+        }
+
+        /** Zoom by a factor, keeping `anchor` (map units) fixed on screen; defaults to the centre. */
+        zoomBy(factor, anchor) {
+            const v = this.view;
+            const a = anchor || { x: v.x + v.w / 2, y: v.y + v.h / 2 };
+            const w = Math.min(BASE_W, Math.max(BASE_W / 14, v.w / factor));
+            const k = w / v.w;
+            if (Math.abs(1 - k) < 1e-4) return;
+            this.setView({ x: a.x - (a.x - v.x) * k, y: a.y - (a.y - v.y) * k, w, h: w / ASPECT });
+        }
+
+        panBy(dx, dy) {
+            this.setView({ ...this.view, x: this.view.x + dx, y: this.view.y + dy });
         }
 
         has(code) { return Boolean(this.elements[code]); }
@@ -180,6 +311,7 @@
                     this.cancelAnimation();
                     apply(target);
                     this.svg.classList.remove('is-animating');
+                    this.updateControls();
                     resolve();
                 };
                 this.svg.classList.add('is-animating');
