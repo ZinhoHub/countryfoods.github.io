@@ -428,7 +428,7 @@ img { display: block; }
 .result-card {
     display: grid;
     grid-template-columns: auto 1fr;
-    grid-template-areas: "flag body" "actions actions";
+    grid-template-areas: "flag body" "actions actions" "places places";
     gap: 16px 18px;
     align-items: center;
     padding: 20px;
@@ -454,6 +454,37 @@ img { display: block; }
 .result-meta { color: var(--text-2); font-size: 0.9rem; margin-top: 6px; }
 .result-actions { grid-area: actions; display: flex; gap: 10px; flex-wrap: wrap; }
 .result-actions .btn { flex: 1; }
+
+/* Restaurant suggestions inside the result card */
+.places { grid-area: places; border-top: 1px solid var(--border); padding-top: 16px; min-width: 0; }
+.places:empty { display: none; }
+.places-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.places-more { font-size: 0.8rem; font-weight: 600; color: var(--accent); text-decoration: none; white-space: nowrap; }
+.places-more:hover { text-decoration: underline; }
+.places-loading, .places-empty { color: var(--text-3); font-size: 0.88rem; display: flex; align-items: center; gap: 8px; }
+.places-source { color: var(--text-3); font-size: 0.72rem; margin-top: 10px; }
+.spinner {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--border-strong); border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite; flex: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.places-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 8px; }
+.place {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 12px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    min-width: 0;
+}
+.place-name { font-weight: 700; }
+.place-meta { font-size: 0.78rem; color: var(--text-2); text-transform: capitalize; }
+.place-address { font-size: 0.8rem; color: var(--text-3); margin-top: 2px; }
+.place-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.place-actions .chip-btn { text-decoration: none; display: inline-flex; align-items: center; }
+.chip-btn.accent { border-color: var(--accent); color: var(--accent); }
+.chip-btn.accent:hover { background: var(--accent-soft); }
 
 /* Up next: picked countries waiting for a meal */
 .up-next { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; width: 100%; min-width: 0; }

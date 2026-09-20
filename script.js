@@ -459,6 +459,69 @@ async function choose(code, { animate }) {
     showResult(country);
 }
 
+// --- RESTAURANT SUGGESTIONS ---
+const placesCache = {};
+let placesRequest = 0;
+
+async function loadRestaurants(country) {
+    const box = $('result-places');
+    const requestId = ++placesRequest;
+    const render = data => { if (requestId === placesRequest) box.innerHTML = renderPlaces(country, data); };
+
+    if (placesCache[country.name]) return render(placesCache[country.name]);
+
+    box.innerHTML = `
+        <div class="places-head"><span class="eyebrow">Where to eat it in London</span></div>
+        <div class="places-loading"><span class="spinner"></span> Looking for ${escapeHtml(country.name)} spots…</div>`;
+    try {
+        const res = await fetch(`/api/restaurants?country=${encodeURIComponent(country.name)}`);
+        const data = await res.json();
+        if (!res.ok && !data.searchUrl) throw new Error(data.error || 'Lookup failed');
+        if (res.ok) placesCache[country.name] = data;
+        render(data);
+    } catch (err) {
+        render({ error: true, searchUrl: `https://www.google.com/maps/search/${encodeURIComponent(country.name + ' restaurant London')}` });
+    }
+}
+
+function renderPlaces(country, data) {
+    const results = data.results || [];
+    const head = `<div class="places-head">
+        <span class="eyebrow">Where to eat it in London</span>
+        <a class="places-more" href="${data.searchUrl}" target="_blank" rel="noopener">Search Google Maps ↗</a>
+    </div>`;
+
+    if (data.error) {
+        return head + `<p class="places-empty">Couldn't reach the restaurant directory just now — try the Google Maps search instead.</p>`;
+    }
+    if (results.length === 0) {
+        return head + `<p class="places-empty">Nothing tagged as ${escapeHtml(data.terms?.[0] || country.name)} in London's map data yet — Google Maps is your best bet.</p>`;
+    }
+    return head + `<div class="places-list">${results.map(p => `
+        <div class="place">
+            <div class="place-main">
+                <div class="place-name">${escapeHtml(p.name)}</div>
+                <div class="place-meta">${[p.type, ...p.cuisine.slice(0, 3)].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+                ${p.address ? `<div class="place-address">${escapeHtml(p.address)}</div>` : ''}
+            </div>
+            <div class="place-actions">
+                <a class="chip-btn" href="${p.mapsUrl}" target="_blank" rel="noopener">Maps</a>
+                ${p.website ? `<a class="chip-btn" href="${escapeHtml(p.website)}" target="_blank" rel="noopener">Site</a>` : ''}
+                <button class="chip-btn accent" type="button" onclick="reviewAt('${country.code}', ${JSON.stringify(p.name).replace(/"/g, '&quot;')})">Review here</button>
+            </div>
+        </div>`).join('')}</div>
+        <p class="places-source">Listings from OpenStreetMap · ${results.length} shown</p>`;
+}
+
+window.reviewAt = function (code, restaurant) {
+    const country = byCode[code];
+    if (!country) return;
+    resetForm();
+    $('log-country').value = country.name;
+    $('log-restaurant').value = restaurant;
+    switchTab('review');
+};
+
 function showResult(country) {
     $('result-flag').src = flagUrl(country.code, 'w160');
     $('result-flag').alt = `Flag of ${country.name}`;
@@ -470,6 +533,7 @@ function showResult(country) {
     $('btn-reset-view').classList.remove('hidden');
     $('btn-pick').disabled = false;
     $('log-country').value = country.name;
+    loadRestaurants(country);
 }
 
 async function clearPick() {
