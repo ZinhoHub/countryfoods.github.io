@@ -155,8 +155,13 @@ input:not(:checked) + .slider .moon { opacity: 0.3; }
 /* Tabs */
 .tab-nav {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 10px;
     margin: 30px 0;
+    padding: 0 16px;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .tab-btn {
@@ -855,3 +860,122 @@ input[type="date"] {
     gap: 15px;
     padding-left: 8px;
 }
+
+/* --- Shared-storage status pill --- */
+.sync-status {
+    margin-top: 14px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    background: rgba(127, 127, 127, 0.15);
+    opacity: 0.85;
+    cursor: default;
+}
+.sync-status.online { background: rgba(39, 174, 96, 0.18); color: #27ae60; }
+.sync-status.offline { background: rgba(230, 126, 34, 0.18); color: #e67e22; }
+
+/* --- Review form --- */
+.form-title {
+    margin: 0 0 5px 0;
+    font-size: 1.3rem;
+    text-align: center;
+    color: var(--text-title);
+}
+
+.save-btn, .cancel-btn {
+    margin-top: 10px;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.save-btn { background: #27ae60; color: white; }
+.save-btn:hover { transform: translateY(-1px); }
+.save-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+.cancel-btn {
+    margin-top: 0;
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid rgba(127, 127, 127, 0.4);
+}
+.cancel-btn:hover { border-color: #ff4757; color: #ff4757; }
+
+/* --- Diary card extras --- */
+.card-scores {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 0.8rem;
+    opacity: 0.75;
+}
+
+.card-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+.card-btn {
+    background: transparent;
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    color: var(--text-primary);
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s, border-color 0.2s, color 0.2s;
+}
+.card-btn:hover { opacity: 1; border-color: var(--text-primary); }
+.card-btn.danger:hover { border-color: #ff4757; color: #ff4757; }
+
+/* --- Popup actions --- */
+.popup-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+#btn-review-now {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    width: 100%;
+}
+#btn-review-now:hover { transform: scale(1.05); }
+
+/* --- Toast --- */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translate(-50%, 20px);
+    background: #27ae60;
+    color: white;
+    padding: 12px 22px;
+    border-radius: 30px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 2000;
+    max-width: 90%;
+    text-align: center;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.error { background: #e74c3c; }

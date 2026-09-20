@@ -68,9 +68,14 @@ const countriesFull = [
     {name: "Zimbabwe", code: "ZW", continent: "Africa"}
 ];
 
+// --- STATE ---
+// Reviews are shared by the whole group and live on the server (api/reviews.js).
+// If the server storage isn't connected yet we fall back to this browser's localStorage.
+let diary = [];
+let cloudConnected = false;
 let spun = JSON.parse(localStorage.getItem("spunCountries") || "[]");
-const loggedCountries = (JSON.parse(localStorage.getItem('foodDiary') || '[]')).map(e => e.country);
-let countries = countriesFull.filter(c => !loggedCountries.includes(c.name));
+let countries = [];
+let editingId = null;
 
 const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
@@ -84,11 +89,151 @@ function getFlagUrl(countryName) {
     return country ? `https://flagcdn.com/w40/${country.code.toLowerCase()}.png` : '';
 }
 
+function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+function todayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Dates are stored as YYYY-MM-DD; older entries may still hold a locale string.
+function parseDate(value) {
+    if (ISO_DATE.test(value || '')) {
+        const [y, m, d] = value.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
+}
+
+function formatDate(value) {
+    const d = parseDate(value);
+    if (d.getTime() === 0) return value || '';
+    return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function scoreColor(score) {
+    if (score >= 8.0) return "#27ae60";
+    if (score >= 5.0) return "#e67e22";
+    return "#e74c3c";
+}
+
+let toastTimer = null;
+function showToast(message, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.classList.toggle('error', isError);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function setSyncStatus() {
+    const el = document.getElementById('sync-status');
+    if (cloudConnected) {
+        el.textContent = '☁️ Shared with the group';
+        el.className = 'sync-status online';
+        el.title = 'Reviews are saved online and visible to everyone.';
+    } else {
+        el.textContent = '📱 Saved on this device only';
+        el.className = 'sync-status offline';
+        el.title = 'Shared storage is not connected yet, so reviews only live in this browser.';
+    }
+}
+
+// --- DATA LAYER ---
+async function api(method, path = '', body) {
+    const res = await fetch(`/api/reviews${path}`, {
+        method,
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) {
+        let message = `Request failed (${res.status})`;
+        try { message = (await res.json()).error || message; } catch (_) { /* ignore */ }
+        throw new Error(message);
+    }
+    return res.status === 204 ? null : res.json();
+}
+
+function loadLocalDiary() {
+    const local = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    // Older entries had no id; give them one so edit/delete can find them.
+    local.forEach(e => { if (!e.id) e.id = `local-${Math.random().toString(36).slice(2)}`; });
+    return local;
+}
+
+function saveLocalDiary() {
+    localStorage.setItem('foodDiary', JSON.stringify(diary));
+}
+
+async function loadDiary() {
+    try {
+        const remote = await api('GET');
+        cloudConnected = true;
+
+        // First time online: push anything this browser had saved locally, then stop using local storage.
+        const local = loadLocalDiary();
+        if (local.length > 0) {
+            for (const entry of local) {
+                const { id, ...rest } = entry;
+                try { remote.push(await api('POST', '', rest)); } catch (_) { /* keep going */ }
+            }
+            localStorage.removeItem('foodDiary');
+            showToast(`Uploaded ${local.length} local review${local.length === 1 ? '' : 's'} to the group`);
+        }
+        diary = remote;
+    } catch (err) {
+        cloudConnected = false;
+        diary = loadLocalDiary();
+    }
+    setSyncStatus();
+    refreshDerived();
+}
+
+async function saveEntry(entry) {
+    if (cloudConnected) {
+        if (entry.id) {
+            const updated = await api('PUT', '', entry);
+            diary = diary.map(e => e.id === updated.id ? updated : e);
+        } else {
+            diary.unshift(await api('POST', '', entry));
+        }
+    } else {
+        if (entry.id) {
+            diary = diary.map(e => e.id === entry.id ? { ...e, ...entry } : e);
+        } else {
+            diary.unshift({ ...entry, id: `local-${Date.now()}`, createdAt: new Date().toISOString() });
+        }
+        saveLocalDiary();
+    }
+    refreshDerived();
+}
+
+async function deleteEntry(id) {
+    if (cloudConnected) await api('DELETE', `?id=${encodeURIComponent(id)}`);
+    diary = diary.filter(e => e.id !== id);
+    if (!cloudConnected) saveLocalDiary();
+    refreshDerived();
+}
+
+// Recompute everything that depends on the diary: wheel contents and progress bar.
+function refreshDerived() {
+    const logged = new Set(diary.map(e => e.country));
+    countries = countriesFull.filter(c => !logged.has(c.name) && !spun.includes(c.name));
+    updateProgressBar();
+    drawWheel();
+}
+
 // --- STATISTICS LOGIC ---
 function updateStats() {
-    const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
+    const data = diary;
     const container = document.getElementById('continent-averages');
-    
+
     if (data.length === 0) {
         container.innerHTML = "<p style='opacity:0.5; text-align:center; margin-top:20px;'>Start logging to see continent stats!</p>";
         document.getElementById('stat-avg-rating').textContent = "0.0";
@@ -100,7 +245,7 @@ function updateStats() {
     const avgRating = (data.reduce((sum, item) => sum + item.overall, 0) / data.length).toFixed(1);
     document.getElementById('stat-avg-rating').textContent = avgRating;
 
-    const continentStats = {}; 
+    const continentStats = {};
     data.forEach(item => {
         const countryData = countriesFull.find(c => c.name === item.country);
         const cont = countryData ? countryData.continent : "Other";
@@ -135,11 +280,10 @@ function updateStats() {
 
 // --- MAP LOGIC ---
 function updateMap() {
-    const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
     const visitedCodes = {};
     const myNewColor = '#27ae60';
 
-    data.forEach(entry => {
+    diary.forEach(entry => {
         const country = countriesFull.find(c => c.name === entry.country);
         if (country) visitedCodes[country.code] = 1;
     });
@@ -149,7 +293,7 @@ function updateMap() {
             selector: "#map",
             map: "world",
             regionStyle: {
-                initial: { 
+                initial: {
                     fill: '#dee2e6',
                     stroke: '#888888',
                     strokeWidth: 0.5
@@ -164,7 +308,6 @@ function updateMap() {
                 }]
             },
             onRegionTooltipShow(event, tooltip, code) {
-                const diary = JSON.parse(localStorage.getItem('foodDiary') || '[]');
                 const countryInfo = countriesFull.find(c => c.code === code);
                 if (!countryInfo) return;
                 const entries = diary.filter(e => e.country === countryInfo.name);
@@ -173,9 +316,9 @@ function updateMap() {
                 } else {
                     const rows = entries.map(e => `
                         <div class="map-tooltip-entry">
-                            <span class="map-tooltip-restaurant">🍽 ${e.restaurant}</span>
-                            <span class="map-tooltip-date">${e.date}</span>
-                            <span class="map-tooltip-score" style="color:${e.overall >= 8 ? '#27ae60' : e.overall >= 5 ? '#e67e22' : '#e74c3c'}">${e.overall.toFixed(1)} ⭐</span>
+                            <span class="map-tooltip-restaurant">🍽 ${escapeHtml(e.restaurant)}</span>
+                            <span class="map-tooltip-date">${formatDate(e.date)}</span>
+                            <span class="map-tooltip-score" style="color:${scoreColor(e.overall)}">${e.overall.toFixed(1)} ⭐</span>
                         </div>`).join('');
                     tooltip.text(`<div class="map-tooltip-name">${countryInfo.name}</div>${rows}`, true);
                 }
@@ -196,29 +339,50 @@ const tabs = {
     stats: { btn: document.getElementById('tab-stats'), sec: document.getElementById('stats-section') }
 };
 
-function switchTab(k) {
+let activeTab = 'wheel';
+let currentDiarySort = 'recent';
+let currentRankCategory = 'overall';
+
+function showSection(k) {
+    activeTab = k;
     Object.keys(tabs).forEach(x => {
         tabs[x].btn.classList.toggle('active', x === k);
         tabs[x].sec.classList.toggle('hidden', x !== k);
     });
-    if (k === 'wheel') drawWheel();
-    if (k === 'history') renderDiary();
-    if (k === 'rankings') window.updateRank('overall');
-    if (k === 'stats') {
+}
+
+function renderActiveTab() {
+    if (activeTab === 'wheel') drawWheel();
+    if (activeTab === 'history') renderDiary(currentDiarySort);
+    if (activeTab === 'rankings') updateRank(currentRankCategory);
+    if (activeTab === 'stats') {
         updateStats();
         setTimeout(updateMap, 50);
+    }
+}
+
+async function switchTab(k) {
+    showSection(k);
+    if (k !== 'diary' && editingId) resetForm();
+    renderActiveTab();
+    // Pick up reviews friends added since the page loaded.
+    if (cloudConnected && k !== 'wheel' && k !== 'diary') {
+        try {
+            diary = await api('GET');
+            refreshDerived();
+            renderActiveTab();
+        } catch (_) { /* keep showing what we have */ }
     }
 }
 Object.keys(tabs).forEach(k => tabs[k].btn.onclick = () => switchTab(k));
 
 // --- WHEEL & PROGRESS LOGIC ---
 function updateProgressBar() {
-    const diary = JSON.parse(localStorage.getItem('foodDiary') || "[]");
     const uniqueCountriesEaten = new Set(diary.map(entry => entry.country));
-    const total = 195;
+    const total = countriesFull.length;
     const completed = uniqueCountriesEaten.size;
     const percentage = (completed / total) * 100;
-    
+
     const percentEl = document.getElementById('progress-percent');
     const fillEl = document.getElementById('progress-fill');
     if (percentEl) percentEl.textContent = `${completed} / ${total}`;
@@ -232,7 +396,7 @@ function drawWheel() {
     }
     const cx = canvas.width / 2, cy = canvas.height / 2, r = canvas.width / 2 - 10;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     if (countries.length === 0) {
         ctx.font = "bold 20px Arial"; ctx.fillStyle = "#ff6b6b"; ctx.textAlign = "center";
         ctx.fillText("All countries spun!", cx, cy); return;
@@ -242,7 +406,7 @@ function drawWheel() {
     countries.forEach((c, i) => {
         const start = currentAngle + i * arc;
         ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, start, start + arc);
-        ctx.fillStyle = `hsl(${i * (360 / countries.length)}, 70%, 60%)`; ctx.fill(); 
+        ctx.fillStyle = `hsl(${i * (360 / countries.length)}, 70%, 60%)`; ctx.fill();
         ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.stroke();
         ctx.save(); ctx.translate(cx, cy); ctx.rotate(start + arc / 2);
         ctx.fillStyle = "white"; ctx.font = countries.length > 50 ? "8px Arial" : "bold 10px Arial";
@@ -273,18 +437,35 @@ function finishSpin() {
     let norm = ((3 * Math.PI / 2) - (currentAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
     const winner = countries[Math.floor(norm / arc) % countries.length];
     document.getElementById('btn-spin').style.opacity = '1';
-    
+
     const popup = document.getElementById("popup");
     const flagImg = document.getElementById("popupFlag");
     document.getElementById("popupCountry").textContent = winner.name;
     flagImg.src = `https://flagcdn.com/w320/${winner.code.toLowerCase()}.png`;
     document.getElementById('log-country').value = winner.name;
 
-    flagImg.onload = () => {
+    // Remember the spin so this country leaves the wheel until it's reviewed or the spins are reset.
+    if (!spun.includes(winner.name)) {
+        spun.push(winner.name);
+        localStorage.setItem("spunCountries", JSON.stringify(spun));
+    }
+
+    const reveal = () => {
         popup.classList.remove("hidden");
         setTimeout(() => popup.classList.add("show"), 10);
     };
+    flagImg.onload = reveal;
+    flagImg.onerror = reveal;
+}
 
+function closePopup(then) {
+    const popup = document.getElementById("popup");
+    popup.classList.remove("show");
+    setTimeout(() => {
+        popup.classList.add("hidden");
+        refreshDerived();
+        if (then) then();
+    }, 300);
 }
 
 // --- FORM LOGIC ---
@@ -292,7 +473,7 @@ function updateAvg() {
     const f = parseFloat(document.getElementById('rate-food').value);
     const s = parseFloat(document.getElementById('rate-service').value);
     const v = parseFloat(document.getElementById('rate-vibe').value);
-    
+
     // Update labels next to sliders
     document.getElementById('val-food').textContent = f.toFixed(1);
     document.getElementById('val-service').textContent = s.toFixed(1);
@@ -300,23 +481,15 @@ function updateAvg() {
 
     // Your weighted math (0.6, 0.3, 0.1)
     const avg = (f * 0.6 + s * 0.3 + v * 0.1).toFixed(1);
-    
+
     const scoreEl = document.getElementById('overall-score');
-    const boxEl = document.getElementById('overall-box'); 
-    
+    const boxEl = document.getElementById('overall-box');
+
     scoreEl.textContent = avg;
 
     // Traffic Light System
-    if (avg >= 8.0) {
-        boxEl.style.backgroundColor = "#27ae60"; // Solid Green
-        boxEl.style.color = "white";
-    } else if (avg >= 5.0) {
-        boxEl.style.backgroundColor = "#e67e22"; // Solid Orange
-        boxEl.style.color = "white";
-    } else {
-        boxEl.style.backgroundColor = "#e74c3c"; // Solid Red
-        boxEl.style.color = "white";
-    }
+    boxEl.style.backgroundColor = scoreColor(parseFloat(avg));
+    boxEl.style.color = "white";
 }
 
 // Ensure the sliders trigger the update
@@ -329,46 +502,103 @@ function setupDL() {
     countriesFull.forEach(c => { let o = document.createElement('option'); o.value = c.name; dl.appendChild(o); });
 }
 
-document.getElementById('btn-save-log').onclick = () => {
-    const country = document.getElementById('log-country').value;
-    if (!country) return alert("Select a country!");
-    
-    const diary = JSON.parse(localStorage.getItem('foodDiary') || "[]");
-    diary.unshift({
-        country, 
-        restaurant: document.getElementById('log-restaurant').value || "Unnamed",
-        food: parseFloat(document.getElementById('rate-food').value),
-        service: parseFloat(document.getElementById('rate-service').value),
-        vibe: parseFloat(document.getElementById('rate-vibe').value),
-        overall: parseFloat(document.getElementById('overall-score').textContent),
-        notes: document.getElementById('log-notes').value,
-        date: new Date().toLocaleDateString()
-    });
-    localStorage.setItem('foodDiary', JSON.stringify(diary));
-    // Remove the logged country from the wheel
-    countries = countries.filter(c => c.name !== country);
-    updateProgressBar();
-    alert("Saved!"); 
-    switchTab('history');
+function resetForm() {
+    editingId = null;
+    document.getElementById('log-country').value = '';
+    document.getElementById('log-date').value = todayISO();
+    document.getElementById('log-restaurant').value = '';
+    document.getElementById('log-notes').value = '';
+    ['rate-food', 'rate-service', 'rate-vibe'].forEach(id => document.getElementById(id).value = 5);
+    updateAvg();
+    document.getElementById('form-title').textContent = 'Add a Review';
+    document.getElementById('btn-save-log').textContent = 'Save Review';
+    document.getElementById('btn-cancel-edit').classList.add('hidden');
+}
+
+window.startEdit = function(id) {
+    const entry = diary.find(e => e.id === id);
+    if (!entry) return;
+    editingId = id;
+    document.getElementById('log-country').value = entry.country;
+    document.getElementById('log-date').value = ISO_DATE.test(entry.date || '') ? entry.date : todayISO();
+    document.getElementById('log-restaurant').value = entry.restaurant === 'Unnamed' ? '' : entry.restaurant;
+    document.getElementById('log-notes').value = entry.notes || '';
+    document.getElementById('rate-food').value = entry.food;
+    document.getElementById('rate-service').value = entry.service;
+    document.getElementById('rate-vibe').value = entry.vibe;
+    updateAvg();
+    document.getElementById('form-title').textContent = `Editing ${entry.country}`;
+    document.getElementById('btn-save-log').textContent = 'Update Review';
+    document.getElementById('btn-cancel-edit').classList.remove('hidden');
+
+    showSection('diary');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
-// --- LOG RENDERING (UPDATED FOR A-Z AND CONTINENT) ---
+
+window.confirmDelete = async function(id) {
+    const entry = diary.find(e => e.id === id);
+    if (!entry) return;
+    if (!confirm(`Delete the review for ${entry.country} (${entry.restaurant})?`)) return;
+    try {
+        await deleteEntry(id);
+        showToast('Review deleted');
+        renderActiveTab();
+    } catch (err) {
+        showToast(`Could not delete: ${err.message}`, true);
+    }
+};
+
+document.getElementById('btn-cancel-edit').onclick = resetForm;
+
+document.getElementById('btn-save-log').onclick = async () => {
+    const country = document.getElementById('log-country').value.trim();
+    const known = countriesFull.find(c => c.name.toLowerCase() === country.toLowerCase());
+    if (!known) return showToast('Pick a country from the list', true);
+
+    const btn = document.getElementById('btn-save-log');
+    const wasEditing = Boolean(editingId);
+    btn.disabled = true;
+    try {
+        await saveEntry({
+            id: editingId || undefined,
+            country: known.name,
+            restaurant: document.getElementById('log-restaurant').value.trim() || "Unnamed",
+            food: parseFloat(document.getElementById('rate-food').value),
+            service: parseFloat(document.getElementById('rate-service').value),
+            vibe: parseFloat(document.getElementById('rate-vibe').value),
+            overall: parseFloat(document.getElementById('overall-score').textContent),
+            notes: document.getElementById('log-notes').value.trim(),
+            date: document.getElementById('log-date').value || todayISO()
+        });
+        showToast(wasEditing ? 'Review updated' : 'Review saved');
+        resetForm();
+        switchTab('history');
+    } catch (err) {
+        showToast(`Could not save: ${err.message}`, true);
+    } finally {
+        btn.disabled = false;
+    }
+};
+
+// --- LOG RENDERING ---
 /**
  * Renders and sorts the food diary entries in the Logs section.
  * Supports: 'recent' (date), 'alpha' (A-Z), and 'continent' (Grouping)
  */
 window.renderDiary = function(sortBy = 'recent') {
+    currentDiarySort = sortBy;
     const container = document.getElementById('diary-display');
-    let diaryData = JSON.parse(localStorage.getItem('foodDiary') || "[]");
-
-    if (diaryData.length === 0) {
-        container.innerHTML = '<p style="text-align:center; width:100%; opacity:0.5;">No reviews found yet!</p>';
-        return;
-    }
+    let diaryData = [...diary];
 
     // 1. UPDATE BUTTON VISUALS
     document.querySelectorAll('#history-section .rank-opt').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.getElementById(`sort-${sortBy}`);
     if (activeBtn) activeBtn.classList.add('active');
+
+    if (diaryData.length === 0) {
+        container.innerHTML = '<p style="text-align:center; width:100%; opacity:0.5;">No reviews found yet!</p>';
+        return;
+    }
 
     // 2. SORTING
     if (sortBy === 'alpha') {
@@ -381,7 +611,11 @@ window.renderDiary = function(sortBy = 'recent') {
             return a.country.localeCompare(b.country);
         });
     } else {
-        diaryData.sort((a, b) => new Date(b.date) - new Date(a.date));
+        diaryData.sort((a, b) => {
+            const byDate = parseDate(b.date) - parseDate(a.date);
+            if (byDate !== 0) return byDate;
+            return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
     }
 
     // 3. CARD BUILDER
@@ -389,23 +623,29 @@ window.renderDiary = function(sortBy = 'recent') {
         const flagUrl = getFlagUrl(item.country);
         const countryInfo = countriesFull.find(c => c.name === item.country);
         const continentName = countryInfo ? countryInfo.continent : "Unknown";
-        let scoreColor = "#e74c3c";
-        if (item.overall >= 8.0) scoreColor = "#27ae60";
-        else if (item.overall >= 5.0) scoreColor = "#e67e22";
         return `
             <div class="diary-card">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                         <img src="${flagUrl}" alt="" style="width:30px;border-radius:4px;border:1px solid rgba(0,0,0,0.1);">
                         <div>
-                            <b style="font-size:1.1rem;display:block;">${item.country}</b>
+                            <b style="font-size:1.1rem;display:block;">${escapeHtml(item.country)}</b>
                             ${showContinent ? `<small style="opacity:0.6;text-transform:uppercase;font-size:0.7rem;letter-spacing:0.5px;">${continentName}</small>` : ''}
                         </div>
                     </div>
-                    <div style="font-size:1.4rem;font-weight:900;color:${scoreColor};">${(item.overall||0).toFixed(1)}</div>
+                    <div style="font-size:1.4rem;font-weight:900;color:${scoreColor(item.overall || 0)};">${(item.overall||0).toFixed(1)}</div>
                 </div>
-                <div style="margin-top:5px;"><small><b>${item.restaurant}</b> — ${item.date}</small></div>
-                <p style="margin:8px 0 0 0;opacity:0.8;font-size:0.85rem;font-style:italic;">${item.notes ? `"${item.notes}"` : ''}</p>
+                <div style="margin-top:5px;"><small><b>${escapeHtml(item.restaurant)}</b> — ${formatDate(item.date)}</small></div>
+                <div class="card-scores">
+                    <span title="Food">🍜 ${(item.food ?? 0).toFixed(1)}</span>
+                    <span title="Service">🛎️ ${(item.service ?? 0).toFixed(1)}</span>
+                    <span title="Vibe">✨ ${(item.vibe ?? 0).toFixed(1)}</span>
+                </div>
+                <p style="margin:8px 0 0 0;opacity:0.8;font-size:0.85rem;font-style:italic;">${item.notes ? `"${escapeHtml(item.notes)}"` : ''}</p>
+                <div class="card-actions">
+                    <button class="card-btn" onclick="startEdit('${item.id}')">✏️ Edit</button>
+                    <button class="card-btn danger" onclick="confirmDelete('${item.id}')">🗑️ Delete</button>
+                </div>
             </div>`;
     }
 
@@ -434,27 +674,27 @@ window.renderDiary = function(sortBy = 'recent') {
         container.innerHTML = diaryData.map(item => buildCard(item, true)).join('');
     }
 }
+
 window.updateRank = function(category) {
-    const data = JSON.parse(localStorage.getItem('foodDiary') || "[]");
-    
-    // Safety check: ensure we are sorting by the correct category field
+    currentRankCategory = category;
+    const data = diary;
     const sorted = [...data].sort((a, b) => b[category] - a[category]);
-    const div = document.getElementById('rankings-list'); 
-    
+    const div = document.getElementById('rankings-list');
+
+    // Update the active state of the buttons visually
+    document.querySelectorAll('#rankings-section .rank-opt').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${category}'`));
+    });
+
     if (data.length === 0) {
         div.innerHTML = '<p style="text-align:center; opacity:0.5; margin-top:20px;">No entries to rank yet!</p>';
         return;
     }
 
     // Force layout
-    div.style.display = "block"; 
+    div.style.display = "block";
     div.style.maxWidth = "600px";
     div.style.margin = "0 auto";
-
-    // Update the active state of the buttons visually
-    document.querySelectorAll('.rank-opt').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('onclick').includes(`'${category}'`));
-    });
 
     // Leaderboard Header - Now dynamic based on category
     let html = `
@@ -469,13 +709,8 @@ window.updateRank = function(category) {
         const flagUrl = getFlagUrl(item.country);
         const isTop3 = i < 3;
         const medalColor = i === 0 ? '#f1c40f' : i === 1 ? '#95a5a6' : i === 2 ? '#cd7f32' : 'transparent';
-        
-        // Traffic Light Logic
-        const score = item[category];
-        let scoreColor = "#e74c3c"; // Red
-        if (score >= 8.0) scoreColor = "#27ae60";      // Green
-        else if (score >= 5.0) scoreColor = "#e67e22"; // Orange
-        
+        const score = item[category] ?? 0;
+
         return `
             <div class="diary-card" style="display: flex; align-items: center; gap: 15px; padding: 15px; margin-bottom: 10px; border-left: 4px solid ${medalColor}; width: 100%; box-sizing: border-box;">
                 <span style="width: 25px; font-weight: 800; font-family: 'Courier New', monospace; font-size: 1.2rem; color: ${isTop3 ? medalColor : 'inherit'};">
@@ -483,10 +718,10 @@ window.updateRank = function(category) {
                 </span>
                 <img src="${flagUrl}" style="width: 30px; height: auto; border-radius: 3px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
                 <div style="flex-grow: 1; overflow: hidden;">
-                    <div style="font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.country}</div>
-                    <div style="opacity: 0.5; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.restaurant}</div>
+                    <div style="font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.country)}</div>
+                    <div style="opacity: 0.5; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.restaurant)}</div>
                 </div>
-                <div style="width: 60px; text-align: right; font-weight: 900; color: ${scoreColor}; font-size: 1.2rem;">
+                <div style="width: 60px; text-align: right; font-weight: 900; color: ${scoreColor(score)}; font-size: 1.2rem;">
                     ${score.toFixed(1)}
                 </div>
             </div>
@@ -498,7 +733,7 @@ window.updateRank = function(category) {
 
 // --- INIT ---
 const themeToggle = document.getElementById('theme-toggle');
-const savedTheme = localStorage.getItem('theme') || 'dark'; 
+const savedTheme = localStorage.getItem('theme') || 'dark';
 
 document.documentElement.setAttribute('data-theme', savedTheme);
 themeToggle.checked = (savedTheme === 'dark');
@@ -508,20 +743,27 @@ themeToggle.onchange = () => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
     if (vectorMap) updateMap();
-    drawWheel(); 
+    drawWheel();
 };
 
 document.getElementById('btn-spin').onclick = spin;
-document.getElementById('btn-close').onclick = () => {
-    const popup = document.getElementById("popup");
-    popup.classList.remove("show");
-    setTimeout(() => { popup.classList.add("hidden"); drawWheel(); }, 300);
+document.getElementById('btn-close').onclick = () => closePopup();
+document.getElementById('btn-review-now').onclick = () => closePopup(() => switchTab('diary'));
+
+// Only forgets which countries have been spun — the group's reviews are never touched here.
+document.getElementById('btn-reset').onclick = () => {
+    if (spun.length === 0) return showToast('No spun countries to reset');
+    if (confirm(`Put ${spun.length} spun countr${spun.length === 1 ? 'y' : 'ies'} back on the wheel?`)) {
+        spun = [];
+        localStorage.removeItem("spunCountries");
+        refreshDerived();
+        showToast('Wheel reset');
+    }
 };
 
-document.getElementById('btn-reset').onclick = () => { 
-    if(confirm("Reset everything?")) { localStorage.clear(); location.reload(); }
-};
+window.addEventListener('resize', () => { if (activeTab === 'wheel') drawWheel(); });
 
-setupDL(); 
-updateProgressBar();
-setTimeout(drawWheel, 100);
+setupDL();
+resetForm();
+refreshDerived();
+loadDiary();
